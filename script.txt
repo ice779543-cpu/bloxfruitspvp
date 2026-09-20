@@ -1,0 +1,300 @@
+--[[
+    Blox Fruits Clean Script (ESP, Camlock, Super Jump & True Flashstep TP)
+    - Press [P] to toggle Player Camlock (Ignores Allies)
+    - Press [N] to toggle NPC Camlock
+    - Press [L] for Super High Jump
+    - Press [M] to instantly Flashstep behind the nearest enemy (Ignores Allies)
+]]
+
+task.spawn(function()
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local localPlayer = Players.LocalPlayer
+    local camera = Workspace.CurrentCamera
+
+    if not localPlayer.Character then
+        localPlayer.CharacterAdded:Wait()
+    end
+
+    -- Cleanup old UI safely
+    if CoreGui:FindFirstChild("PvPHUDUI") then
+        CoreGui.PvPHUDUI:Destroy()
+    end
+
+    for _, gui in ipairs(CoreGui:GetChildren()) do
+        if gui.Name == "PlayerESP" then
+            gui:Destroy()
+        end
+    end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "PvPHUDUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = CoreGui
+
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Size = UDim2.new(0, 300, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -150, 0.85, 0)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Font = Enum.Font.SourceSansBold
+    StatusLabel.TextSize = 18
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    StatusLabel.TextStrokeTransparency = 0
+    StatusLabel.Text = "Cam: OFF | Jump: [L] | Flash: [M]"
+    StatusLabel.Parent = ScreenGui
+
+    local playerCamlockActive = false
+    local npcCamlockActive = false
+    local currentTarget = nil
+    local activeESPs = {}
+
+    local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
+
+    -- Helper to check if a player is an ally
+    local function isPlayerAlly(player)
+        if player == localPlayer then return true end
+        if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
+            if localPlayer.Team.Name:lower() ~= "pirates" then
+                return true
+            end
+        end
+        local successAttr, isAllyAttr = pcall(function()
+            return player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
+        end)
+        return successAttr and isAllyAttr
+    end
+
+    -- Selector for closest non-allied player
+    local function getClosestPlayer()
+        local closestPlayer = nil
+        local shortestDist = math.huge
+        local character = localPlayer.Character
+        
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        local myRootPos = character.HumanoidRootPart.Position
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not isPlayerAlly(player) then
+                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        local targetRoot = player.Character.HumanoidRootPart
+                        local dist = (myRootPos - targetRoot.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestPlayer = player.Character
+                        end
+                    end
+                end
+            end
+        end
+
+        return closestPlayer
+    end
+
+    -- Selector for closest NPC
+    local function getClosestNPC()
+        local closestNPC = nil
+        local shortestDist = math.huge
+        local character = localPlayer.Character
+        
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        local myRootPos = character.HumanoidRootPart.Position
+
+        for _, obj in ipairs(enemiesFolder:GetChildren()) do
+            if obj:IsA("Model") and obj ~= character then
+                local humanoid = obj:FindFirstChildOfClass("Humanoid")
+                local rootPart = obj:FindFirstChild("HumanoidRootPart")
+                
+                if humanoid and rootPart and not Players:GetPlayerFromCharacter(obj) then
+                    if humanoid.Health > 0 then
+                        local dist = (myRootPos - rootPart.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestNPC = obj
+                        end
+                    end
+                end
+            end
+        end
+
+        return closestNPC
+    end
+
+    local function updateStatusText()
+        local camStatus = "OFF"
+        if playerCamlockActive then camStatus = "Player ON"
+        elseif npcCamlockActive then camStatus = "NPC ON" end
+
+        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | Flash: [M]", camStatus)
+        if playerCamlockActive or npcCamlockActive then
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
+        else
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        end
+    end
+
+    -- Keybind Toggles
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        
+        if input.KeyCode == Enum.KeyCode.P then
+            if npcCamlockActive then npcCamlockActive = false end
+            playerCamlockActive = not playerCamlockActive
+            if playerCamlockActive then
+                currentTarget = getClosestPlayer()
+                if not currentTarget then playerCamlockActive = false end
+            else
+                currentTarget = nil
+            end
+            updateStatusText()
+            
+        elseif input.KeyCode == Enum.KeyCode.N then
+            if playerCamlockActive then playerCamlockActive = false end
+            npcCamlockActive = not npcCamlockActive
+            if npcCamlockActive then
+                currentTarget = getClosestNPC()
+                if not currentTarget then npcCamlockActive = false end
+            else
+                currentTarget = nil
+            end
+            updateStatusText()
+            
+        elseif input.KeyCode == Enum.KeyCode.L then
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
+            end
+            
+        elseif input.KeyCode == Enum.KeyCode.M then
+            -- True Flashstep Teleport: Instantly places you directly behind the target player and faces them
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local targetChar = getClosestPlayer()
+                if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+                    local targetRoot = targetChar.HumanoidRootPart
+                    -- Places you 4 studs behind them while keeping your orientation looking at their back
+                    char.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 4)
+                end
+            end
+        end
+    end)
+
+    -- Color Resolver for ESP
+    local function getPlayerColor(player)
+        local team = player.Team
+        if team and team.Name:lower():find("marine") then
+            return Color3.fromRGB(0, 150, 255)
+        end
+        return Color3.fromRGB(255, 50, 50)
+    end
+
+    -- ESP Setup
+    local function createESP(player)
+        if player == localPlayer then return end
+
+        local function setupCharacter(char)
+            if activeESPs[player] then
+                activeESPs[player].billboard:Destroy()
+                activeESPs[player].conn:Disconnect()
+                activeESPs[player] = nil
+            end
+
+            local head = char:WaitForChild("Head", 5)
+            local humanoid = char:WaitForChild("Humanoid", 5)
+            if not head or not humanoid then return end
+
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "PlayerESP"
+            billboard.Size = UDim2.new(0, 160, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Adornee = head
+            billboard.Parent = CoreGui
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.Font = Enum.Font.SourceSansBold
+            textLabel.TextSize = 14
+            textLabel.TextColor3 = getPlayerColor(player)
+            textLabel.TextStrokeTransparency = 0
+            textLabel.TextXAlignment = Enum.TextXAlignment.Center
+            textLabel.TextYAlignment = Enum.TextYAlignment.Center
+            textLabel.Parent = billboard
+
+            local elapsed = 0
+            local connection
+            connection = RunService.Heartbeat:Connect(function(dt)
+                elapsed = elapsed + dt
+                if elapsed < 0.2 then return end
+                elapsed = 0
+
+                if not char or not char.Parent or humanoid.Health <= 0 then
+                    billboard:Destroy()
+                    connection:Disconnect()
+                    activeESPs[player] = nil
+                    return
+                end
+
+                local lvl = "N/A"
+                if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") then
+                    lvl = player.leaderstats.Level.Value
+                elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
+                    lvl = player.Data.Level.Value
+                end
+
+                textLabel.TextColor3 = getPlayerColor(player)
+                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+            end)
+
+            activeESPs[player] = {billboard = billboard, conn = connection}
+        end
+
+        if player.Character then
+            setupCharacter(player.Character)
+        end
+        player.CharacterAdded:Connect(setupCharacter)
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        createESP(p)
+    end
+    Players.PlayerAdded:Connect(createESP)
+
+    Players.PlayerRemoving:Connect(function(player)
+        if activeESPs[player] then
+            activeESPs[player].billboard:Destroy()
+            activeESPs[player].conn:Disconnect()
+            activeESPs[player] = nil
+        end
+    end)
+
+    -- Main Camera Lock Loop
+    RunService.RenderStepped:Connect(function(dt)
+        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
+            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
+            
+            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
+                playerCamlockActive = false
+                npcCamlockActive = false
+                currentTarget = nil
+                updateStatusText()
+                return
+            end
+
+            local targetRoot = currentTarget.HumanoidRootPart
+            local currentCamCFrame = camera.CFrame
+            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
+            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
+            
+            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
+        end
+    end)
+end)
