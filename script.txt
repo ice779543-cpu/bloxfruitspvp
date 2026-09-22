@@ -1,12 +1,12 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Fixed Macro)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Fixed Macro Engine)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
     - Press [U] to Start/Stop Recording your Macro Combo
-    - Press [Y] to Playback your saved Macro Combo (Safely triggers skills)
+    - Press [Y] to Playback your saved Macro Combo (Holds skills long enough to fire)
 ]]
 
 task.spawn(function()
@@ -15,7 +15,7 @@ task.spawn(function()
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local CoreGui = game:GetService("CoreGui")
-    local VirtualUser = game:GetService("VirtualUser")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
@@ -159,23 +159,18 @@ task.spawn(function()
         end
     end
 
-    -- Direct Key Simulation for Blox Fruits Combat
-    local function simulateKey(keyCode)
-        local vim = game:GetService("VirtualInputManager")
-        if vim then
-            pcall(function()
-                vim:SendKeyEvent(true, keyCode, false, game)
-                task.wait(0.05)
-                vim:SendKeyEvent(false, keyCode, false, game)
-            end)
-        end
+    -- Bulletproof Key Simulation (Holds key down long enough for Blox Fruits to register skill usage)
+    local function executeKeyAction(keyCode, isDown)
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(isDown, keyCode, false, game)
+        end)
     end
 
     -- Keybind Toggles & Macro Recorder
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
-        -- Record skill / combat keys (Z, X, C, V, F, Mouse Clicks)
+        -- Record combat/skill inputs (excluding macro control keys U and Y)
         if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
             local actionTime = tick() - recordingStartTime
             table.insert(recordedMacro, {key = input.KeyCode, time = actionTime})
@@ -261,7 +256,10 @@ task.spawn(function()
                         if delayTime > 0 then
                             task.wait(delayTime)
                         end
-                        simulateKey(action.key)
+                        -- Press down, hold for 0.15s to let Blox Fruits register tool equip + skill execution, then release
+                        executeKeyAction(action.key, true)
+                        task.wait(0.15)
+                        executeKeyAction(action.key, false)
                     end
                     isPlayingMacro = false
                     updateStatusText()
