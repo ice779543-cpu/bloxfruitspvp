@@ -1,11 +1,11 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Advanced Anti-Stun)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP Enemy, TP Ally)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
-    - Press [U] to Toggle Advanced Anti-Stun ON/OFF
+    - Press [U] to TP directly behind the nearest allied player
 ]]
 
 task.spawn(function()
@@ -46,12 +46,11 @@ task.spawn(function()
     StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP | [U] Anti-Stun: OFF"
+    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
     local npcCamlockActive = false
-    local antiStunActive = false
     local currentTarget = nil
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
@@ -77,7 +76,7 @@ task.spawn(function()
         return false
     end
 
-    -- Selector for closest non-allied player
+    -- Selector for closest non-allied player (Enemy)
     local function getClosestPlayer()
         local closestPlayer = nil
         local shortestDist = math.huge
@@ -103,6 +102,34 @@ task.spawn(function()
         end
 
         return closestPlayer
+    end
+
+    -- Selector for closest allied player
+    local function getClosestAlly()
+        local closestAlly = nil
+        local shortestDist = math.huge
+        local character = localPlayer.Character
+        
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        local myRootPos = character.HumanoidRootPart.Position
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if isPlayerAlly(player) then
+                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        local targetRoot = player.Character.HumanoidRootPart
+                        local dist = (myRootPos - targetRoot.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestAlly = player.Character
+                        end
+                    end
+                end
+            end
+        end
+
+        return closestAlly
     end
 
     -- Selector for closest NPC
@@ -139,10 +166,8 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        local stunStatus = antiStunActive and "ON" or "OFF"
-        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP | [U] Anti-Stun: %s", camStatus, stunStatus)
-        
-        if playerCamlockActive or npcCamlockActive or antiStunActive then
+        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally", camStatus)
+        if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
@@ -205,61 +230,17 @@ task.spawn(function()
             end
 
         elseif input.KeyCode == Enum.KeyCode.U then
-            antiStunActive = not antiStunActive
-            updateStatusText()
-        end
-    end)
-
-    -- Continuous Anti-Stun Loop & Camlock Update
-    RunService.Heartbeat:Connect(function(dt)
-        if antiStunActive then
             local char = localPlayer.Character
-            if char then
-                pcall(function()
-                    local humanoid = char:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        -- Prevent the game from setting state to Stunned or Physics lock
-                        if humanoid:GetState() == Enum.HumanoidStateType.Stunned then
-                            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                        end
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local targetChar = getClosestAlly()
+                if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+                    local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+                    if targetPlayer and isPlayerAlly(targetPlayer) then
+                        local targetRoot = targetChar.HumanoidRootPart
+                        char.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
                     end
-
-                    -- Clear Stun values/attributes continuously
-                    local stunVal = char:FindFirstChild("Stun")
-                    if stunVal then
-                        if stunVal:IsA("NumberValue") or stunVal:IsA("IntValue") then
-                            stunVal.Value = 0
-                        elseif stunVal:IsA("BoolValue") then
-                            stunVal.Value = false
-                        end
-                    end
-
-                    char:SetAttribute("Stun", 0)
-                    char:SetAttribute("NotConscious", false)
-                    char:SetAttribute("DisableMove", false)
-                end)
+                end
             end
-        end
-
-        -- Main Camera Lock Loop
-        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
-            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
-            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
-            
-            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
-                playerCamlockActive = false
-                npcCamlockActive = false
-                currentTarget = nil
-                updateStatusText()
-                return
-            end
-
-            local targetRoot = currentTarget.HumanoidRootPart
-            local currentCamCFrame = camera.CFrame
-            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
-            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
-            
-            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
         end
     end)
 
@@ -350,6 +331,29 @@ task.spawn(function()
             activeESPs[player].billboard:Destroy()
             activeESPs[player].conn:Disconnect()
             activeESPs[player] = nil
+        end
+    end)
+
+    -- Main Camera Lock Loop
+    RunService.RenderStepped:Connect(function(dt)
+        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
+            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
+            
+            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
+                playerCamlockActive = false
+                npcCamlockActive = false
+                currentTarget = nil
+                updateStatusText()
+                return
+            end
+
+            local targetRoot = currentTarget.HumanoidRootPart
+            local currentCamCFrame = camera.CFrame
+            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
+            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
+            
+            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
         end
     end)
 end)
