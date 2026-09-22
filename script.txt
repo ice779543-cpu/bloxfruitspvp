@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Live PvP, Anti-Ally Fix, Super Jump, TP, Long Dash [H])
-    - Press [P] to toggle Player Camlock (Strictly Ignores Allies, fixes unally cache)
+    Blox Fruits Clean Script (ESP, Live PvP, Anti-Ally Fix, Super Jump, Boosted Long Dash [H], TP)
+    - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [H] for Long Dash (Dashes much farther forward)
+    - Press [H] for Boosted Long Dash (Dashes much farther now)
     - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Allies)
 ]]
 
@@ -198,14 +198,13 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.H then
-            -- Long Dash: Boosts character forward in the direction they are facing
+            -- Boosted Long Dash: Much higher velocity multiplier to throw you far forward
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local rootPart = char.HumanoidRootPart
                 local lookVector = camera.CFrame.LookVector
-                -- Project horizontally to prevent flying/sinking into the floor
-                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Unit.Z).Unit
-                rootPart.AssemblyLinearVelocity = flatLook * 150 + Vector3.new(0, 30, 0)
+                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 20, 0)
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
