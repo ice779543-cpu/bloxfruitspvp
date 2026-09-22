@@ -55,10 +55,6 @@ task.spawn(function()
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Hold Action States
-    local holdingJump = false
-    local holdingDash = false
-
     -- Dynamic Anti-Ally Checker
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
@@ -178,7 +174,7 @@ task.spawn(function()
         end
     end
 
-    -- Keybind Press Handling
+    -- Keybind Toggles (Instant Teleports & Camlocks)
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
@@ -203,12 +199,6 @@ task.spawn(function()
                 currentTarget = nil
             end
             updateStatusText()
-            
-        elseif input.KeyCode == Enum.KeyCode.L then
-            holdingJump = true
-            
-        elseif input.KeyCode == Enum.KeyCode.H then
-            holdingDash = true
             
         elseif input.KeyCode == Enum.KeyCode.M then
             local char = localPlayer.Character
@@ -235,15 +225,6 @@ task.spawn(function()
                     end
                 end
             end
-        end
-    end)
-
-    -- Keybind Release Handling
-    UserInputService.InputEnded:Connect(function(input, gp)
-        if input.KeyCode == Enum.KeyCode.L then
-            holdingJump = false
-        elseif input.KeyCode == Enum.KeyCode.H then
-            holdingDash = false
         end
     end)
 
@@ -337,19 +318,19 @@ task.spawn(function()
         end
     end)
 
-    -- Main Heartbeat Loop (Handles Continuous Hold Actions & Camera Lock)
+    -- Main Heartbeat Loop (Direct State Polling for [H] and [L] + Camera Lock)
     RunService.Heartbeat:Connect(function(dt)
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local rootPart = char.HumanoidRootPart
 
-            -- Continuous Jump Loop
-            if holdingJump then
+            -- Instantly detects if [L] is currently being held down
+            if UserInputService:IsKeyDown(Enum.KeyCode.L) then
                 rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
             end
 
-            -- Continuous Dash Loop
-            if holdingDash then
+            -- Instantly detects if [H] is currently being held down
+            if UserInputService:IsKeyDown(Enum.KeyCode.H) then
                 local lookVector = camera.CFrame.LookVector
                 local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
                 rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 10, 0)
