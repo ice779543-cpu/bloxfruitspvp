@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP Enemy, TP Ally)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Holdable Super Jump [L], Holdable Long Dash [H], TP Enemy, TP Ally)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
-    - Press [L] for Super High Jump
-    - Press [H] for Boosted Long Dash
+    - Hold [L] for Rapid Super High Jumps
+    - Hold [H] for Continuous Boosted Long Dashes
     - Press [M] to TP directly behind the nearest enemy
     - Press [U] to TP directly behind the nearest allied player
 ]]
@@ -39,14 +39,14 @@ task.spawn(function()
     ScreenGui.Parent = CoreGui
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0, 420, 0, 30)
-    StatusLabel.Position = UDim2.new(0.5, -210, 0.85, 0)
+    StatusLabel.Size = UDim2.new(0, 460, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -230, 0.85, 0)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Font = Enum.Font.SourceSansBold
     StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally"
+    StatusLabel.Text = "Cam: OFF | Hold [L] Jump | Hold [H] Dash | [M] TP Enemy | [U] TP Ally"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
@@ -54,6 +54,10 @@ task.spawn(function()
     local currentTarget = nil
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
+
+    -- Hold Action States
+    local holdingJump = false
+    local holdingDash = false
 
     -- Dynamic Anti-Ally Checker
     local function isPlayerAlly(player)
@@ -166,7 +170,7 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally", camStatus)
+        StatusLabel.Text = string.format("Cam: %s | Hold [L] Jump | Hold [H] Dash | [M] TP Enemy | [U] TP Ally", camStatus)
         if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
@@ -174,7 +178,7 @@ task.spawn(function()
         end
     end
 
-    -- Keybind Toggles
+    -- Keybind Press Handling
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
@@ -201,20 +205,10 @@ task.spawn(function()
             updateStatusText()
             
         elseif input.KeyCode == Enum.KeyCode.L then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local rootPart = char.HumanoidRootPart
-                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
-            end
+            holdingJump = true
             
         elseif input.KeyCode == Enum.KeyCode.H then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local rootPart = char.HumanoidRootPart
-                local lookVector = camera.CFrame.LookVector
-                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 20, 0)
-            end
+            holdingDash = true
             
         elseif input.KeyCode == Enum.KeyCode.M then
             local char = localPlayer.Character
@@ -241,6 +235,15 @@ task.spawn(function()
                     end
                 end
             end
+        end
+    end)
+
+    -- Keybind Release Handling
+    UserInputService.InputEnded:Connect(function(input, gp)
+        if input.KeyCode == Enum.KeyCode.L then
+            holdingJump = false
+        elseif input.KeyCode == Enum.KeyCode.H then
+            holdingDash = false
         end
     end)
 
@@ -334,8 +337,26 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop
-    RunService.RenderStepped:Connect(function(dt)
+    -- Main Heartbeat Loop (Handles Continuous Hold Actions & Camera Lock)
+    RunService.Heartbeat:Connect(function(dt)
+        local char = localPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local rootPart = char.HumanoidRootPart
+
+            -- Continuous Jump Loop
+            if holdingJump then
+                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
+            end
+
+            -- Continuous Dash Loop
+            if holdingDash then
+                local lookVector = camera.CFrame.LookVector
+                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 10, 0)
+            end
+        end
+
+        -- Main Camera Lock Loop
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
             local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
