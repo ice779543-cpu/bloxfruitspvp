@@ -1,12 +1,12 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Custom Macro)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Fixed Macro)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [H] for Boosted Long Dash ([H])
+    - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
-    - Press [U] to Start/Stop Recording your own Macro Combo
-    - Press [Y] to Playback your saved Macro Combo
+    - Press [U] to Start/Stop Recording your Macro Combo
+    - Press [Y] to Playback your saved Macro Combo (Safely triggers skills)
 ]]
 
 task.spawn(function()
@@ -15,7 +15,7 @@ task.spawn(function()
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local CoreGui = game:GetService("CoreGui")
-    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local VirtualUser = game:GetService("VirtualUser")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
@@ -159,19 +159,26 @@ task.spawn(function()
         end
     end
 
-    -- Helper to trigger custom macro actions
-    local function executeKeyAction(keyCode, isDown)
-        VirtualInputManager:SendKeyEvent(isDown, keyCode, false, game)
+    -- Direct Key Simulation for Blox Fruits Combat
+    local function simulateKey(keyCode)
+        local vim = game:GetService("VirtualInputManager")
+        if vim then
+            pcall(function()
+                vim:SendKeyEvent(true, keyCode, false, game)
+                task.wait(0.05)
+                vim:SendKeyEvent(false, keyCode, false, game)
+            end)
+        end
     end
 
     -- Keybind Toggles & Macro Recorder
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
-        -- Record key actions if recording is active (excluding U and Y control keys)
+        -- Record skill / combat keys (Z, X, C, V, F, Mouse Clicks)
         if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
             local actionTime = tick() - recordingStartTime
-            table.insert(recordedMacro, {type = "down", key = input.KeyCode, time = actionTime})
+            table.insert(recordedMacro, {key = input.KeyCode, time = actionTime})
         end
 
         if input.KeyCode == Enum.KeyCode.P then
@@ -227,13 +234,11 @@ task.spawn(function()
 
         elseif input.KeyCode == Enum.KeyCode.U then
             if not isRecording then
-                -- Start Recording
                 recordedMacro = {}
                 recordingStartTime = tick()
                 isRecording = true
                 updateStatusText("🔴 [MACRO] Recording started... Press [U] again to save.")
             else
-                -- Stop Recording & Save
                 isRecording = false
                 updateStatusText(string.format("🟢 [MACRO] Saved! (%d actions recorded)", #recordedMacro))
                 task.delay(2.5, function()
@@ -246,7 +251,6 @@ task.spawn(function()
                 updateStatusText("⚠️ You haven't saved a macro!")
                 task.delay(2.5, function() updateStatusText() end)
             elseif not isPlayingMacro then
-                -- Playback Macro
                 isPlayingMacro = true
                 updateStatusText("▶️ Playing Macro Combo...")
                 
@@ -257,23 +261,12 @@ task.spawn(function()
                         if delayTime > 0 then
                             task.wait(delayTime)
                         end
-                        executeKeyAction(action.key, true)
-                        task.wait(0.05)
-                        executeKeyAction(action.key, false)
+                        simulateKey(action.key)
                     end
                     isPlayingMacro = false
                     updateStatusText()
                 end)
             end
-        end
-    end)
-
-    -- Capture key release events for macro recording accurately
-    UserInputService.InputEnded:Connect(function(input, gp)
-        if gp then return end
-        if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
-            local actionTime = tick() - recordingStartTime
-            table.insert(recordedMacro, {type = "up", key = input.KeyCode, time = actionTime})
         end
     end)
 
@@ -286,7 +279,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup (Cleaned: Level & Health only, PvP Status removed)
+    -- ESP Setup (Cleaned: Level & Health only)
     local function createESP(player)
         if player == localPlayer then return end
 
