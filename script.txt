@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Holdable Super Jump [L], Holdable Long Dash [H], TP Enemy, TP Ally)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump [L], Boosted Long Dash [H], TP Enemy [M], TP Ally [U])
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
-    - Hold [L] for Rapid Super High Jumps
-    - Hold [H] for Continuous Boosted Long Dashes
+    - Press [L] for a Single Super High Jump
+    - Press [H] for a Single Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
     - Press [U] to TP directly behind the nearest allied player
 ]]
@@ -46,7 +46,7 @@ task.spawn(function()
     StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | Hold [L] Jump | Hold [H] Dash | [M] TP Enemy | [U] TP Ally"
+    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
@@ -166,7 +166,7 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | Hold [L] Jump | Hold [H] Dash | [M] TP Enemy | [U] TP Ally", camStatus)
+        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP Enemy | [U] TP Ally", camStatus)
         if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
@@ -174,7 +174,7 @@ task.spawn(function()
         end
     end
 
-    -- Keybind Toggles (Instant Teleports & Camlocks)
+    -- Keybind Single-Press Actions
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
@@ -199,6 +199,22 @@ task.spawn(function()
                 currentTarget = nil
             end
             updateStatusText()
+            
+        elseif input.KeyCode == Enum.KeyCode.L then
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
+            end
+            
+        elseif input.KeyCode == Enum.KeyCode.H then
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                local lookVector = camera.CFrame.LookVector
+                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 20, 0)
+            end
             
         elseif input.KeyCode == Enum.KeyCode.M then
             local char = localPlayer.Character
@@ -318,26 +334,8 @@ task.spawn(function()
         end
     end)
 
-    -- Main Heartbeat Loop (Direct State Polling for [H] and [L] + Camera Lock)
-    RunService.Heartbeat:Connect(function(dt)
-        local char = localPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local rootPart = char.HumanoidRootPart
-
-            -- Instantly detects if [L] is currently being held down
-            if UserInputService:IsKeyDown(Enum.KeyCode.L) then
-                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
-            end
-
-            -- Instantly detects if [H] is currently being held down
-            if UserInputService:IsKeyDown(Enum.KeyCode.H) then
-                local lookVector = camera.CFrame.LookVector
-                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 10, 0)
-            end
-        end
-
-        -- Main Camera Lock Loop
+    -- Main Camera Lock Loop
+    RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
             local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
