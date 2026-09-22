@@ -1,10 +1,11 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Anti-Stun)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
+    - Press [U] to Toggle Anti-Stun ON/OFF
 ]]
 
 task.spawn(function()
@@ -38,18 +39,19 @@ task.spawn(function()
     ScreenGui.Parent = CoreGui
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0, 360, 0, 30)
-    StatusLabel.Position = UDim2.new(0.5, -180, 0.85, 0)
+    StatusLabel.Size = UDim2.new(0, 420, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -210, 0.85, 0)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Font = Enum.Font.SourceSansBold
     StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP"
+    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP | [U] Anti-Stun: OFF"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
     local npcCamlockActive = false
+    local antiStunActive = false
     local currentTarget = nil
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
@@ -137,8 +139,10 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP", camStatus)
-        if playerCamlockActive or npcCamlockActive then
+        local stunStatus = antiStunActive and "ON" or "OFF"
+        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP | [U] Anti-Stun: %s", camStatus, stunStatus)
+        
+        if playerCamlockActive or npcCamlockActive or antiStunActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
@@ -199,6 +203,59 @@ task.spawn(function()
                     end
                 end
             end
+
+        elseif input.KeyCode == Enum.KeyCode.U then
+            antiStunActive = not antiStunActive
+            updateStatusText()
+        end
+    end)
+
+    -- Continuous Anti-Stun Loop (Bypasses character stun values and attributes)
+    RunService.Heartbeat:Connect(function()
+        if antiStunActive then
+            local char = localPlayer.Character
+            if char then
+                pcall(function()
+                    -- Remove standard Blox Fruits stun values if they exist
+                    local stunVal = char:FindFirstChild("Stun")
+                    if stunVal then
+                        if stunVal:IsA("NumberValue") or stunVal:IsA("IntValue") then
+                            stunVal.Value = 0
+                        elseif stunVal:IsA("BoolValue") then
+                            stunVal.Value = false
+                        end
+                    end
+
+                    -- Clear common combat stun attributes
+                    if char:GetAttribute("Stun") then
+                        char:SetAttribute("Stun", 0)
+                    end
+                    if char:GetAttribute("NotConscious") then
+                        char:SetAttribute("NotConscious", false)
+                    end
+                end)
+            end
+        end
+
+        -- Main Camera Lock Loop
+        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
+            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
+            
+            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
+                playerCamlockActive = false
+            npcCamlockActive = false
+                currentTarget = nil
+                updateStatusText()
+                return
+            end
+
+            local targetRoot = currentTarget.HumanoidRootPart
+            local currentCamCFrame = camera.CFrame
+            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
+            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
+            
+            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * (1/60)))
         end
     end)
 
@@ -289,29 +346,6 @@ task.spawn(function()
             activeESPs[player].billboard:Destroy()
             activeESPs[player].conn:Disconnect()
             activeESPs[player] = nil
-        end
-    end)
-
-    -- Main Camera Lock Loop
-    RunService.RenderStepped:Connect(function(dt)
-        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
-            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
-            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
-            
-            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
-                playerCamlockActive = false
-                npcCamlockActive = false
-                currentTarget = nil
-                updateStatusText()
-                return
-            end
-
-            local targetRoot = currentTarget.HumanoidRootPart
-            local currentCamCFrame = camera.CFrame
-            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
-            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
-            
-            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
         end
     end)
 end)
