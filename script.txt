@@ -1,12 +1,10 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Direct Tool/Remote Macro)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
-    - Press [U] to Start/Stop Recording your Macro Combo
-    - Press [Y] to Playback your saved Macro Combo (Directly activates tools/Remotes)
 ]]
 
 task.spawn(function()
@@ -15,7 +13,6 @@ task.spawn(function()
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local CoreGui = game:GetService("CoreGui")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
@@ -41,14 +38,14 @@ task.spawn(function()
     ScreenGui.Parent = CoreGui
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0, 420, 0, 30)
-    StatusLabel.Position = UDim2.new(0.5, -210, 0.85, 0)
+    StatusLabel.Size = UDim2.new(0, 360, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -180, 0.85, 0)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Font = Enum.Font.SourceSansBold
     StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP | [U] Rec | [Y] Play"
+    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
@@ -56,12 +53,6 @@ task.spawn(function()
     local currentTarget = nil
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
-
-    -- Macro State Variables
-    local isRecording = false
-    local isPlayingMacro = false
-    local recordedMacro = {}
-    local recordingStartTime = 0
 
     -- Dynamic Anti-Ally Checker
     local function isPlayerAlly(player)
@@ -141,55 +132,23 @@ task.spawn(function()
         return closestNPC
     end
 
-    local function updateStatusText(extraMsg)
+    local function updateStatusText()
         local camStatus = "OFF"
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        if extraMsg then
-            StatusLabel.Text = extraMsg
-        else
-            StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP | [U] Rec | [Y] Play", camStatus)
-        end
-
-        if playerCamlockActive or npcCamlockActive or isRecording then
+        StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP", camStatus)
+        if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
         end
     end
 
-    -- Direct Execution Engine: Equips the tool and activates it or fires skill events
-    local function playMacroAction(key)
-        local char = localPlayer.Character
-        if not char then return end
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-
-        -- Map skill keys to standard combat inputs
-        local backpack = localPlayer:FindFirstChild("Backpack")
-        
-        -- Find currently equipped tool or look for items in backpack
-        local equippedTool = char:FindFirstChildOfClass("Tool")
-        
-        if equippedTool then
-            pcall(function()
-                -- Directly activate the tool's core logic or fire remote functions if available
-                equippedTool:Activate()
-            end)
-        end
-    end
-
-    -- Keybind Toggles & Macro Recorder
+    -- Keybind Toggles
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
-        -- Record combat/skill inputs (excluding macro control keys U and Y)
-        if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
-            local actionTime = tick() - recordingStartTime
-            table.insert(recordedMacro, {key = input.KeyCode, time = actionTime})
-        end
-
         if input.KeyCode == Enum.KeyCode.P then
             if npcCamlockActive then npcCamlockActive = false end
             playerCamlockActive = not playerCamlockActive
@@ -239,43 +198,6 @@ task.spawn(function()
                         char.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
                     end
                 end
-            end
-
-        elseif input.KeyCode == Enum.KeyCode.U then
-            if not isRecording then
-                recordedMacro = {}
-                recordingStartTime = tick()
-                isRecording = true
-                updateStatusText("🔴 [MACRO] Recording started... Press [U] again to save.")
-            else
-                isRecording = false
-                updateStatusText(string.format("🟢 [MACRO] Saved! (%d actions recorded)", #recordedMacro))
-                task.delay(2.5, function()
-                    if not isRecording then updateStatusText() end
-                end)
-            end
-
-        elseif input.KeyCode == Enum.KeyCode.Y then
-            if #recordedMacro == 0 then
-                updateStatusText("⚠️ You haven't saved a macro!")
-                task.delay(2.5, function() updateStatusText() end)
-            elseif not isPlayingMacro then
-                isPlayingMacro = true
-                updateStatusText("▶️ Playing Macro Combo...")
-                
-                task.spawn(function()
-                    local startTime = tick()
-                    for _, action in ipairs(recordedMacro) do
-                        local delayTime = action.time - (tick() - startTime)
-                        if delayTime > 0 then
-                            task.wait(delayTime)
-                        end
-                        playMacroAction(action.key)
-                        task.wait(0.2)
-                    end
-                    isPlayingMacro = false
-                    updateStatusText()
-                end)
             end
         end
     end)
