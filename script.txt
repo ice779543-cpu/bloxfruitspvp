@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Live PvP Status, Strict Anti-Ally TP/Camlock, Super Jump)
-    - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
+    Blox Fruits Clean Script (ESP, Live PvP Status, Hardcoded Anti-Ally Shield, Super Jump)
+    - Press [P] to toggle Player Camlock (Strictly Ignores Crew/Friends/Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Allies)
+    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Crew/Friends/Allies)
 ]]
 
 task.spawn(function()
@@ -54,32 +54,40 @@ task.spawn(function()
 
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Strict Anti-Ally Helper: Checks party, crew, team, and attributes
+    -- Bulletproof Anti-Ally Checker (Crew, Friends, Party, Team)
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
-        
-        -- Check standard team alignment (non-Pirate teams like Marines or friendly factions)
+
+        -- 1. Check standard Roblox Friend System
+        local successFriend, isFriend = pcall(function()
+            return localPlayer:IsFriendsWith(player.UserId)
+        end)
+        if successFriend and isFriend then return true end
+
+        -- 2. Check Team affiliation (Marines/Friendly factions)
         if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
             if localPlayer.Team.Name:lower() ~= "pirates" then
                 return true
             end
         end
 
-        -- Check Blox Fruits internal attributes for crew members, allies, or friends
-        local success, isAlly = pcall(function()
-            if player:GetAttribute("Ally") == true then return true end
-            if player:GetAttribute("CrewMember") == true then return true end
-            if player:GetAttribute("InSafeZone") == true then return true end
-            return false
+        -- 3. Check Blox Fruits Crew data structures safely
+        local successCrew = pcall(function()
+            if localPlayer:FindFirstChild("Data") and player:FindFirstChild("Data") then
+                local myCrew = localPlayer.Data:FindFirstChild("Crew")
+                local targetCrew = player.Data:FindFirstChild("Crew")
+                if myCrew and targetCrew and myCrew.Value ~= 0 and myCrew.Value == targetCrew.Value then
+                    return true
+                end
+            end
         end)
-        if success and isAlly then return true end
 
-        -- Check if they are part of the same crew structure if applicable
-        local successCrew, localCrew = pcall(function() return localPlayer.Data.Crew.Value end)
-        local successTargetCrew, targetCrew = pcall(function() return player.Data.Crew.Value end)
-        if successCrew and successTargetCrew and localCrew ~= 0 and localCrew == targetCrew then
-            return true
-        end
+        -- 4. Check UI/Attribute tags for allies, safe zones, or crew flags
+        local successAttr = pcall(function()
+            if player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true then
+                return true
+            end
+        end)
 
         return false
     end
@@ -113,7 +121,6 @@ task.spawn(function()
 
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                -- Double check ally status explicitly here before considering them
                 if not isPlayerAlly(player) then
                     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
                     if humanoid and humanoid.Health > 0 then
@@ -207,7 +214,7 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
-            -- Strict Anti-Ally TP Execution
+            -- Absolute Safe TP (Forces check before moving)
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local targetChar = getClosestPlayer()
