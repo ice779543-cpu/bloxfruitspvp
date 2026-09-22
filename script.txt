@@ -1,9 +1,10 @@
 --[[
-    Blox Fruits Clean Script (ESP, Live PvP Status, Dynamic Anti-Ally Cache Fix, Super Jump)
-    - Press [P] to toggle Player Camlock (Fixes unally cache bug instantly)
+    Blox Fruits Clean Script (ESP, Live PvP, Anti-Ally Fix, Super Jump, TP, Long Dash [H])
+    - Press [P] to toggle Player Camlock (Strictly Ignores Allies, fixes unally cache)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [M] to TP directly behind the nearest enemy (Fixes unally cache bug instantly)
+    - Press [H] for Long Dash (Dashes much farther forward)
+    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Allies)
 ]]
 
 task.spawn(function()
@@ -37,14 +38,14 @@ task.spawn(function()
     ScreenGui.Parent = CoreGui
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0, 300, 0, 30)
-    StatusLabel.Position = UDim2.new(0.5, -150, 0.85, 0)
+    StatusLabel.Size = UDim2.new(0, 320, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -160, 0.85, 0)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Font = Enum.Font.SourceSansBold
     StatusLabel.TextSize = 18
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | Jump: [L] | TP: [M]"
+    StatusLabel.Text = "Cam: OFF | Jump: [L] | Dash: [H] | TP: [M]"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
@@ -58,18 +59,14 @@ task.spawn(function()
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
 
-        -- Strictly verify active attributes that update instantly upon unallying
         local success, isAlly = pcall(function()
-            -- If Blox Fruits still flags them explicitly as a crew/party member
             if player:GetAttribute("CrewMember") == true then return true end
-            -- If they are marked with an active permanent alliance attribute
             if player:GetAttribute("Ally") == true then return true end
             return false
         end)
         
         if success and isAlly then return true end
 
-        -- Check team alignment (Non-pirate factions)
         if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
             if localPlayer.Team.Name:lower() ~= "pirates" then
                 return true
@@ -159,7 +156,7 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | TP: [M]", camStatus)
+        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | Dash: [H] | TP: [M]", camStatus)
         if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
@@ -198,6 +195,17 @@ task.spawn(function()
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local rootPart = char.HumanoidRootPart
                 rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
+            end
+            
+        elseif input.KeyCode == Enum.KeyCode.H then
+            -- Long Dash: Boosts character forward in the direction they are facing
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                local lookVector = camera.CFrame.LookVector
+                -- Project horizontally to prevent flying/sinking into the floor
+                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Unit.Z).Unit
+                rootPart.AssemblyLinearVelocity = flatLook * 150 + Vector3.new(0, 30, 0)
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
