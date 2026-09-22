@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Clean Script (ESP, Camlock, Super Jump & TP)
+    Blox Fruits Clean Script (ESP with Fixed Live PvP Status, Camlock, Super Jump & TP)
     - Press [P] to toggle Player Camlock (Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
@@ -63,9 +63,29 @@ task.spawn(function()
             end
         end
         local successAttr, isAllyAttr = pcall(function()
-            return player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
+            return player:GetAttribute("InSafeZone") == true or player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
         end)
         return successAttr and isAllyAttr
+    end
+
+    -- Real-time check for actual PvP vulnerability status
+    local function getPvPStatus(player, char)
+        local success, result = pcall(function()
+            -- Check character attributes and safe zones used by Blox Fruits
+            if player:GetAttribute("InSafeZone") == true then return false end
+            if char and char:GetAttribute("SafeZone") == true then return false end
+            if char and char:GetAttribute("PvpDisabled") == true then return false end
+            
+            -- Check combat or safe state leaderstats/values if available
+            if player:FindFirstChild("Data") then
+                local safeVal = player.Data:FindFirstChild("SafeZone")
+                if safeVal and safeVal.Value == true then return false end
+            end
+            
+            return true
+        end)
+        if success then return result end
+        return true
     end
 
     -- Selector for closest non-allied player
@@ -196,7 +216,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup
+    -- ESP Setup with Functional PvP Status
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -213,7 +233,7 @@ task.spawn(function()
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 160, 0, 50)
+            billboard.Size = UDim2.new(0, 160, 0, 60)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
@@ -223,7 +243,7 @@ task.spawn(function()
             textLabel.Size = UDim2.new(1, 0, 1, 0)
             textLabel.BackgroundTransparency = 1
             textLabel.Font = Enum.Font.SourceSansBold
-            textLabel.TextSize = 14
+            textLabel.TextSize = 13
             textLabel.TextColor3 = getPlayerColor(player)
             textLabel.TextStrokeTransparency = 0
             textLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -251,8 +271,11 @@ task.spawn(function()
                     lvl = player.Data.Level.Value
                 end
 
+                local pvpActive = getPvPStatus(player, char)
+                local pvpDisplay = pvpActive and "🟢 PvP: ON" or "🔴 PvP: OFF"
+
                 textLabel.TextColor3 = getPlayerColor(player)
-                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d | %s", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth), pvpDisplay)
             end)
 
             activeESPs[player] = {billboard = billboard, conn = connection}
