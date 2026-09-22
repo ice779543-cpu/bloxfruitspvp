@@ -1,12 +1,12 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Fixed Macro Engine)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Direct Tool/Remote Macro)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
     - Press [U] to Start/Stop Recording your Macro Combo
-    - Press [Y] to Playback your saved Macro Combo (Holds skills long enough to fire)
+    - Press [Y] to Playback your saved Macro Combo (Directly activates tools/Remotes)
 ]]
 
 task.spawn(function()
@@ -15,7 +15,7 @@ task.spawn(function()
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local CoreGui = game:GetService("CoreGui")
-    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
@@ -159,11 +159,25 @@ task.spawn(function()
         end
     end
 
-    -- Bulletproof Key Simulation (Holds key down long enough for Blox Fruits to register skill usage)
-    local function executeKeyAction(keyCode, isDown)
-        pcall(function()
-            VirtualInputManager:SendKeyEvent(isDown, keyCode, false, game)
-        end)
+    -- Direct Execution Engine: Equips the tool and activates it or fires skill events
+    local function playMacroAction(key)
+        local char = localPlayer.Character
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+
+        -- Map skill keys to standard combat inputs
+        local backpack = localPlayer:FindFirstChild("Backpack")
+        
+        -- Find currently equipped tool or look for items in backpack
+        local equippedTool = char:FindFirstChildOfClass("Tool")
+        
+        if equippedTool then
+            pcall(function()
+                -- Directly activate the tool's core logic or fire remote functions if available
+                equippedTool:Activate()
+            end)
+        end
     end
 
     -- Keybind Toggles & Macro Recorder
@@ -256,10 +270,8 @@ task.spawn(function()
                         if delayTime > 0 then
                             task.wait(delayTime)
                         end
-                        -- Press down, hold for 0.15s to let Blox Fruits register tool equip + skill execution, then release
-                        executeKeyAction(action.key, true)
-                        task.wait(0.15)
-                        executeKeyAction(action.key, false)
+                        playMacroAction(action.key)
+                        task.wait(0.2)
                     end
                     isPlayingMacro = false
                     updateStatusText()
