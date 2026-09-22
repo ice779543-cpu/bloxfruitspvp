@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Clean Script (ESP, Fixed PvP Indicator, Camlock, Super Jump & TP)
+    Blox Fruits Clean Script (ESP, Camlock, Super Jump & TP)
     - Press [P] to toggle Player Camlock (Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
@@ -66,19 +66,6 @@ task.spawn(function()
             return player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
         end)
         return successAttr and isAllyAttr
-    end
-
-    -- Accurate check for PvP status based on safe zone distance or native tags
-    local function isPvPEnabled(player, char)
-        -- If they are in safe zone or level protected, or specific attributes exist
-        local success, val = pcall(function()
-            if player:GetAttribute("InSafeZone") == true then return false end
-            if player:GetAttribute("DisablePvp") == true then return false end
-            if char and char:GetAttribute("PvpDisabled") == true then return false end
-            return true
-        end)
-        if success then return val end
-        return true
     end
 
     -- Selector for closest non-allied player
@@ -209,7 +196,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup with Fixed PvP Status
+    -- ESP Setup
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -226,7 +213,7 @@ task.spawn(function()
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 160, 0, 60)
+            billboard.Size = UDim2.new(0, 160, 0, 50)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
@@ -236,7 +223,7 @@ task.spawn(function()
             textLabel.Size = UDim2.new(1, 0, 1, 0)
             textLabel.BackgroundTransparency = 1
             textLabel.Font = Enum.Font.SourceSansBold
-            textLabel.TextSize = 13
+            textLabel.TextSize = 14
             textLabel.TextColor3 = getPlayerColor(player)
             textLabel.TextStrokeTransparency = 0
             textLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -264,12 +251,8 @@ task.spawn(function()
                     lvl = player.Data.Level.Value
                 end
 
-                local pvpActive = isPvPEnabled(player, char)
-                local pvpText = pvpActive and "<font color=\"#00FF80\">PvP: ON</font>" or "<font color=\"#FF3232\">PvP: OFF</font>"
-
                 textLabel.TextColor3 = getPlayerColor(player)
-                textLabel.RichText = true
-                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d | %s", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth), pvpText)
+                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
             end)
 
             activeESPs[player] = {billboard = billboard, conn = connection}
