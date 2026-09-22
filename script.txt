@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Camlock, Super Jump & True Flashstep TP)
+    Blox Fruits Clean Script (ESP, PvP Status, Camlock, Super Jump & TP)
     - Press [P] to toggle Player Camlock (Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [M] to instantly Flashstep behind the nearest enemy (Ignores Allies)
+    - Press [M] to TP directly behind the nearest enemy (Ignores Allies)
 ]]
 
 task.spawn(function()
@@ -44,7 +44,7 @@ task.spawn(function()
     StatusLabel.TextSize = 18
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | Jump: [L] | Flash: [M]"
+    StatusLabel.Text = "Cam: OFF | Jump: [L] | TP: [M]"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
@@ -54,7 +54,7 @@ task.spawn(function()
 
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Helper to check if a player is an ally
+    -- Helper to strictly check if a player is an ally
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
         if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
@@ -66,6 +66,18 @@ task.spawn(function()
             return player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
         end)
         return successAttr and isAllyAttr
+    end
+
+    -- Helper to check if player has PvP enabled
+    local function isPvPEnabled(player)
+        local success, pvpState = pcall(function()
+            return player.PvP.Value or player:GetAttribute("PvP") == true
+        end)
+        if success and pvpState ~= nil then
+            return pvpState
+        end
+        -- Default assumption for Blox Fruits fighting style checks if needed, fallback to true if unknown
+        return true 
     end
 
     -- Selector for closest non-allied player
@@ -130,7 +142,7 @@ task.spawn(function()
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | Flash: [M]", camStatus)
+        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | TP: [M]", camStatus)
         if playerCamlockActive or npcCamlockActive then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
@@ -172,20 +184,22 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
-            -- True Flashstep Teleport: Instantly places you directly behind the target player and faces them
+            -- Anti-Ally TP: Teleports right behind the nearest non-allied player
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local targetChar = getClosestPlayer()
                 if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                    local targetRoot = targetChar.HumanoidRootPart
-                    -- Places you 4 studs behind them while keeping your orientation looking at their back
-                    char.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 4)
+                    local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+                    if targetPlayer and not isPlayerAlly(targetPlayer) then
+                        local targetRoot = targetChar.HumanoidRootPart
+                        char.HumanoidRootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
+                    end
                 end
             end
         end
     end)
 
-    -- Color Resolver for ESP
+    -- Color Resolver for ESP Team
     local function getPlayerColor(player)
         local team = player.Team
         if team and team.Name:lower():find("marine") then
@@ -194,7 +208,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup
+    -- ESP Setup with PvP Status
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -211,7 +225,7 @@ task.spawn(function()
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 160, 0, 50)
+            billboard.Size = UDim2.new(0, 160, 0, 60)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
@@ -221,7 +235,7 @@ task.spawn(function()
             textLabel.Size = UDim2.new(1, 0, 1, 0)
             textLabel.BackgroundTransparency = 1
             textLabel.Font = Enum.Font.SourceSansBold
-            textLabel.TextSize = 14
+            textLabel.TextSize = 13
             textLabel.TextColor3 = getPlayerColor(player)
             textLabel.TextStrokeTransparency = 0
             textLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -249,8 +263,12 @@ task.spawn(function()
                     lvl = player.Data.Level.Value
                 end
 
+                local pvpActive = isPvPEnabled(player)
+                local pvpText = pvpActive and "<font color=\"#00FF80\">PvP: ON</font>" or "<font color=\"#FF3232\">PvP: OFF</font>"
+
                 textLabel.TextColor3 = getPlayerColor(player)
-                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+                textLabel.RichText = true
+                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d | %s", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth), pvpText)
             end)
 
             activeESPs[player] = {billboard = billboard, conn = connection}
@@ -275,7 +293,7 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop
+    -- Main Camera Lock Loop with Anti-Ally Validation
     RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
