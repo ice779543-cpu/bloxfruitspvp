@@ -1,10 +1,12 @@
 --[[
-    Blox Fruits Clean Script (ESP, Live PvP, Anti-Ally Fix, Super Jump, Boosted Long Dash [H], TP)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Custom Macro)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [H] for Boosted Long Dash (Dashes much farther now)
-    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Allies)
+    - Press [H] for Boosted Long Dash ([H])
+    - Press [M] to TP directly behind the nearest enemy
+    - Press [U] to Start/Stop Recording your own Macro Combo
+    - Press [Y] to Playback your saved Macro Combo
 ]]
 
 task.spawn(function()
@@ -13,6 +15,7 @@ task.spawn(function()
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
     local CoreGui = game:GetService("CoreGui")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
@@ -38,24 +41,29 @@ task.spawn(function()
     ScreenGui.Parent = CoreGui
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0, 320, 0, 30)
-    StatusLabel.Position = UDim2.new(0.5, -160, 0.85, 0)
+    StatusLabel.Size = UDim2.new(0, 420, 0, 30)
+    StatusLabel.Position = UDim2.new(0.5, -210, 0.85, 0)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.Font = Enum.Font.SourceSansBold
-    StatusLabel.TextSize = 18
+    StatusLabel.TextSize = 16
     StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
     StatusLabel.TextStrokeTransparency = 0
-    StatusLabel.Text = "Cam: OFF | Jump: [L] | Dash: [H] | TP: [M]"
+    StatusLabel.Text = "Cam: OFF | [L] Jump | [H] Dash | [M] TP | [U] Rec | [Y] Play"
     StatusLabel.Parent = ScreenGui
 
     local playerCamlockActive = false
     local npcCamlockActive = false
     local currentTarget = nil
     local activeESPs = {}
-
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Dynamic Anti-Ally Checker (Clears immediately when unallied in-game)
+    -- Macro State Variables
+    local isRecording = false
+    local isPlayingMacro = false
+    local recordedMacro = {}
+    local recordingStartTime = 0
+
+    -- Dynamic Anti-Ally Checker
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
 
@@ -74,24 +82,6 @@ task.spawn(function()
         end
 
         return false
-    end
-
-    -- Real-time check for actual PvP vulnerability status
-    local function getPvPStatus(player, char)
-        local success, result = pcall(function()
-            if player:GetAttribute("InSafeZone") == true then return false end
-            if char and char:GetAttribute("SafeZone") == true then return false end
-            if char and char:GetAttribute("PvpDisabled") == true then return false end
-            
-            if player:FindFirstChild("Data") then
-                local safeVal = player.Data:FindFirstChild("SafeZone")
-                if safeVal and safeVal.Value == true then return false end
-            end
-            
-            return true
-        end)
-        if success then return result end
-        return true
     end
 
     -- Selector for closest non-allied player
@@ -151,23 +141,39 @@ task.spawn(function()
         return closestNPC
     end
 
-    local function updateStatusText()
+    local function updateStatusText(extraMsg)
         local camStatus = "OFF"
         if playerCamlockActive then camStatus = "Player ON"
         elseif npcCamlockActive then camStatus = "NPC ON" end
 
-        StatusLabel.Text = string.format("Cam: %s | Jump: [L] | Dash: [H] | TP: [M]", camStatus)
-        if playerCamlockActive or npcCamlockActive then
+        if extraMsg then
+            StatusLabel.Text = extraMsg
+        else
+            StatusLabel.Text = string.format("Cam: %s | [L] Jump | [H] Dash | [M] TP | [U] Rec | [Y] Play", camStatus)
+        end
+
+        if playerCamlockActive or npcCamlockActive or isRecording then
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
         end
     end
 
-    -- Keybind Toggles
+    -- Helper to trigger custom macro actions
+    local function executeKeyAction(keyCode, isDown)
+        VirtualInputManager:SendKeyEvent(isDown, keyCode, false, game)
+    end
+
+    -- Keybind Toggles & Macro Recorder
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
+        -- Record key actions if recording is active (excluding U and Y control keys)
+        if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
+            local actionTime = tick() - recordingStartTime
+            table.insert(recordedMacro, {type = "down", key = input.KeyCode, time = actionTime})
+        end
+
         if input.KeyCode == Enum.KeyCode.P then
             if npcCamlockActive then npcCamlockActive = false end
             playerCamlockActive = not playerCamlockActive
@@ -198,7 +204,6 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.H then
-            -- Boosted Long Dash: Much higher velocity multiplier to throw you far forward
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local rootPart = char.HumanoidRootPart
@@ -219,6 +224,56 @@ task.spawn(function()
                     end
                 end
             end
+
+        elseif input.KeyCode == Enum.KeyCode.U then
+            if not isRecording then
+                -- Start Recording
+                recordedMacro = {}
+                recordingStartTime = tick()
+                isRecording = true
+                updateStatusText("🔴 [MACRO] Recording started... Press [U] again to save.")
+            else
+                -- Stop Recording & Save
+                isRecording = false
+                updateStatusText(string.format("🟢 [MACRO] Saved! (%d actions recorded)", #recordedMacro))
+                task.delay(2.5, function()
+                    if not isRecording then updateStatusText() end
+                end)
+            end
+
+        elseif input.KeyCode == Enum.KeyCode.Y then
+            if #recordedMacro == 0 then
+                updateStatusText("⚠️ You haven't saved a macro!")
+                task.delay(2.5, function() updateStatusText() end)
+            elseif not isPlayingMacro then
+                -- Playback Macro
+                isPlayingMacro = true
+                updateStatusText("▶️ Playing Macro Combo...")
+                
+                task.spawn(function()
+                    local startTime = tick()
+                    for _, action in ipairs(recordedMacro) do
+                        local delayTime = action.time - (tick() - startTime)
+                        if delayTime > 0 then
+                            task.wait(delayTime)
+                        end
+                        executeKeyAction(action.key, true)
+                        task.wait(0.05)
+                        executeKeyAction(action.key, false)
+                    end
+                    isPlayingMacro = false
+                    updateStatusText()
+                end)
+            end
+        end
+    end)
+
+    -- Capture key release events for macro recording accurately
+    UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if isRecording and input.KeyCode ~= Enum.KeyCode.U and input.KeyCode ~= Enum.KeyCode.Y then
+            local actionTime = tick() - recordingStartTime
+            table.insert(recordedMacro, {type = "up", key = input.KeyCode, time = actionTime})
         end
     end)
 
@@ -231,7 +286,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup with Live PvP Status
+    -- ESP Setup (Cleaned: Level & Health only, PvP Status removed)
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -248,7 +303,7 @@ task.spawn(function()
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 180, 0, 60)
+            billboard.Size = UDim2.new(0, 180, 0, 45)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
@@ -286,11 +341,8 @@ task.spawn(function()
                     lvl = player.Data.Level.Value
                 end
 
-                local pvpActive = getPvPStatus(player, char)
-                local pvpDisplay = pvpActive and "🟢 PvP: ON" or "🔴 PvP: OFF"
-
                 textLabel.TextColor3 = getPlayerColor(player)
-                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d | %s", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth), pvpDisplay)
+                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
             end)
 
             activeESPs[player] = {billboard = billboard, conn = connection}
@@ -315,7 +367,7 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop with Dynamic Validation
+    -- Main Camera Lock Loop
     RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
