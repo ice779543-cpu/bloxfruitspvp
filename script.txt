@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP with Fixed Live PvP Status, Camlock, Super Jump & TP)
-    - Press [P] to toggle Player Camlock (Ignores Allies)
+    Blox Fruits Clean Script (ESP, Live PvP Status, Strict Anti-Ally TP/Camlock, Super Jump)
+    - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [M] to TP directly behind the nearest enemy (Ignores Allies)
+    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Allies)
 ]]
 
 task.spawn(function()
@@ -54,29 +54,43 @@ task.spawn(function()
 
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Helper to strictly check if a player is an ally
+    -- Strict Anti-Ally Helper: Checks party, crew, team, and attributes
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
+        
+        -- Check standard team alignment (non-Pirate teams like Marines or friendly factions)
         if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
             if localPlayer.Team.Name:lower() ~= "pirates" then
                 return true
             end
         end
-        local successAttr, isAllyAttr = pcall(function()
-            return player:GetAttribute("InSafeZone") == true or player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true
+
+        -- Check Blox Fruits internal attributes for crew members, allies, or friends
+        local success, isAlly = pcall(function()
+            if player:GetAttribute("Ally") == true then return true end
+            if player:GetAttribute("CrewMember") == true then return true end
+            if player:GetAttribute("InSafeZone") == true then return true end
+            return false
         end)
-        return successAttr and isAllyAttr
+        if success and isAlly then return true end
+
+        -- Check if they are part of the same crew structure if applicable
+        local successCrew, localCrew = pcall(function() return localPlayer.Data.Crew.Value end)
+        local successTargetCrew, targetCrew = pcall(function() return player.Data.Crew.Value end)
+        if successCrew and successTargetCrew and localCrew ~= 0 and localCrew == targetCrew then
+            return true
+        end
+
+        return false
     end
 
     -- Real-time check for actual PvP vulnerability status
     local function getPvPStatus(player, char)
         local success, result = pcall(function()
-            -- Check character attributes and safe zones used by Blox Fruits
             if player:GetAttribute("InSafeZone") == true then return false end
             if char and char:GetAttribute("SafeZone") == true then return false end
             if char and char:GetAttribute("PvpDisabled") == true then return false end
             
-            -- Check combat or safe state leaderstats/values if available
             if player:FindFirstChild("Data") then
                 local safeVal = player.Data:FindFirstChild("SafeZone")
                 if safeVal and safeVal.Value == true then return false end
@@ -99,6 +113,7 @@ task.spawn(function()
 
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                -- Double check ally status explicitly here before considering them
                 if not isPlayerAlly(player) then
                     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
                     if humanoid and humanoid.Health > 0 then
@@ -192,7 +207,7 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
-            -- Anti-Ally TP: Teleports right behind the nearest non-allied player
+            -- Strict Anti-Ally TP Execution
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local targetChar = getClosestPlayer()
@@ -216,7 +231,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup with Functional PvP Status
+    -- ESP Setup with Live PvP Status
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -233,7 +248,7 @@ task.spawn(function()
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 160, 0, 60)
+            billboard.Size = UDim2.new(0, 180, 0, 60)
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
@@ -300,7 +315,7 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop with Anti-Ally Validation
+    -- Main Camera Lock Loop with Strict Anti-Ally Validation
     RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
