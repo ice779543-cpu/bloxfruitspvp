@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Clean Script (ESP, PvP Status, Camlock, Super Jump & TP)
+    Blox Fruits Clean Script (ESP, Fixed PvP Indicator, Camlock, Super Jump & TP)
     - Press [P] to toggle Player Camlock (Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
@@ -68,16 +68,17 @@ task.spawn(function()
         return successAttr and isAllyAttr
     end
 
-    -- Helper to check if player has PvP enabled
-    local function isPvPEnabled(player)
-        local success, pvpState = pcall(function()
-            return player.PvP.Value or player:GetAttribute("PvP") == true
+    -- Accurate check for PvP status based on safe zone distance or native tags
+    local function isPvPEnabled(player, char)
+        -- If they are in safe zone or level protected, or specific attributes exist
+        local success, val = pcall(function()
+            if player:GetAttribute("InSafeZone") == true then return false end
+            if player:GetAttribute("DisablePvp") == true then return false end
+            if char and char:GetAttribute("PvpDisabled") == true then return false end
+            return true
         end)
-        if success and pvpState ~= nil then
-            return pvpState
-        end
-        -- Default assumption for Blox Fruits fighting style checks if needed, fallback to true if unknown
-        return true 
+        if success then return val end
+        return true
     end
 
     -- Selector for closest non-allied player
@@ -208,7 +209,7 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup with PvP Status
+    -- ESP Setup with Fixed PvP Status
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -263,7 +264,7 @@ task.spawn(function()
                     lvl = player.Data.Level.Value
                 end
 
-                local pvpActive = isPvPEnabled(player)
+                local pvpActive = isPvPEnabled(player, char)
                 local pvpText = pvpActive and "<font color=\"#00FF80\">PvP: ON</font>" or "<font color=\"#FF3232\">PvP: OFF</font>"
 
                 textLabel.TextColor3 = getPlayerColor(player)
