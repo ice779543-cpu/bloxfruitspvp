@@ -1,9 +1,9 @@
 --[[
-    Blox Fruits Clean Script (ESP, Live PvP Status, Hardcoded Anti-Ally Shield, Super Jump)
-    - Press [P] to toggle Player Camlock (Strictly Ignores Crew/Friends/Allies)
+    Blox Fruits Clean Script (ESP, Live PvP Status, Dynamic Anti-Ally Cache Fix, Super Jump)
+    - Press [P] to toggle Player Camlock (Fixes unally cache bug instantly)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
-    - Press [M] to TP directly behind the nearest enemy (Strictly Ignores Crew/Friends/Allies)
+    - Press [M] to TP directly behind the nearest enemy (Fixes unally cache bug instantly)
 ]]
 
 task.spawn(function()
@@ -54,40 +54,27 @@ task.spawn(function()
 
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
-    -- Bulletproof Anti-Ally Checker (Crew, Friends, Party, Team)
+    -- Dynamic Anti-Ally Checker (Clears immediately when unallied in-game)
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
 
-        -- 1. Check standard Roblox Friend System
-        local successFriend, isFriend = pcall(function()
-            return localPlayer:IsFriendsWith(player.UserId)
+        -- Strictly verify active attributes that update instantly upon unallying
+        local success, isAlly = pcall(function()
+            -- If Blox Fruits still flags them explicitly as a crew/party member
+            if player:GetAttribute("CrewMember") == true then return true end
+            -- If they are marked with an active permanent alliance attribute
+            if player:GetAttribute("Ally") == true then return true end
+            return false
         end)
-        if successFriend and isFriend then return true end
+        
+        if success and isAlly then return true end
 
-        -- 2. Check Team affiliation (Marines/Friendly factions)
+        -- Check team alignment (Non-pirate factions)
         if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
             if localPlayer.Team.Name:lower() ~= "pirates" then
                 return true
             end
         end
-
-        -- 3. Check Blox Fruits Crew data structures safely
-        local successCrew = pcall(function()
-            if localPlayer:FindFirstChild("Data") and player:FindFirstChild("Data") then
-                local myCrew = localPlayer.Data:FindFirstChild("Crew")
-                local targetCrew = player.Data:FindFirstChild("Crew")
-                if myCrew and targetCrew and myCrew.Value ~= 0 and myCrew.Value == targetCrew.Value then
-                    return true
-                end
-            end
-        end)
-
-        -- 4. Check UI/Attribute tags for allies, safe zones, or crew flags
-        local successAttr = pcall(function()
-            if player:GetAttribute("Ally") == true or player:GetAttribute("CrewMember") == true then
-                return true
-            end
-        end)
 
         return false
     end
@@ -214,7 +201,6 @@ task.spawn(function()
             end
             
         elseif input.KeyCode == Enum.KeyCode.M then
-            -- Absolute Safe TP (Forces check before moving)
             local char = localPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local targetChar = getClosestPlayer()
@@ -322,7 +308,7 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop with Strict Anti-Ally Validation
+    -- Main Camera Lock Loop with Dynamic Validation
     RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
