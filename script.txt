@@ -1,11 +1,11 @@
 --[[
-    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Anti-Stun)
+    Blox Fruits Clean Script (ESP, Anti-Ally Fix, Super Jump, Boosted Long Dash, TP, Advanced Anti-Stun)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock
     - Press [L] for Super High Jump
     - Press [H] for Boosted Long Dash
     - Press [M] to TP directly behind the nearest enemy
-    - Press [U] to Toggle Anti-Stun ON/OFF
+    - Press [U] to Toggle Advanced Anti-Stun ON/OFF
 ]]
 
 task.spawn(function()
@@ -210,13 +210,21 @@ task.spawn(function()
         end
     end)
 
-    -- Continuous Anti-Stun Loop (Bypasses character stun values and attributes)
-    RunService.Heartbeat:Connect(function()
+    -- Continuous Anti-Stun Loop & Camlock Update
+    RunService.Heartbeat:Connect(function(dt)
         if antiStunActive then
             local char = localPlayer.Character
             if char then
                 pcall(function()
-                    -- Remove standard Blox Fruits stun values if they exist
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        -- Prevent the game from setting state to Stunned or Physics lock
+                        if humanoid:GetState() == Enum.HumanoidStateType.Stunned then
+                            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                        end
+                    end
+
+                    -- Clear Stun values/attributes continuously
                     local stunVal = char:FindFirstChild("Stun")
                     if stunVal then
                         if stunVal:IsA("NumberValue") or stunVal:IsA("IntValue") then
@@ -226,13 +234,9 @@ task.spawn(function()
                         end
                     end
 
-                    -- Clear common combat stun attributes
-                    if char:GetAttribute("Stun") then
-                        char:SetAttribute("Stun", 0)
-                    end
-                    if char:GetAttribute("NotConscious") then
-                        char:SetAttribute("NotConscious", false)
-                    end
+                    char:SetAttribute("Stun", 0)
+                    char:SetAttribute("NotConscious", false)
+                    char:SetAttribute("DisableMove", false)
                 end)
             end
         end
@@ -244,7 +248,7 @@ task.spawn(function()
             
             if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
                 playerCamlockActive = false
-            npcCamlockActive = false
+                npcCamlockActive = false
                 currentTarget = nil
                 updateStatusText()
                 return
@@ -255,7 +259,7 @@ task.spawn(function()
             local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
             local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
             
-            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * (1/60)))
+            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
         end
     end)
 
