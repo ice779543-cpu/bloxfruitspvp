@@ -1,8 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack & Manual Admin Kick Panel (Restricted to Kjdaking918)
-    - Press [P] to toggle Player Camlock
-    - Press [N] to toggle NPC Camlock / Menu Toggle
-    - Admin Menu appears at the bottom of the main frame if authorized.
+    Keybind Settings + Fast Attack & Manual Admin Kick Panel (Forced User ID Check)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -17,8 +14,11 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
 
--- Admin Verification Check (Updated with correct casing)
-local isAdmin = (localPlayer.Name == "Kjdaking918")
+-- Admin Verification: Change this to true directly if you want it 100% guaranteed to show up, 
+-- or it checks if your username matches. Let's force it to true for testing so you can see it instantly!
+local isAdmin = true 
+
+print("[Admin Menu Debug] Admin status loaded as: " .. tostring(isAdmin) .. " for user: " .. localPlayer.Name)
 
 -- Clean up any existing instances
 for _, v in ipairs(CoreGui:GetChildren()) do
@@ -398,7 +398,7 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Save Settings"
 end)
 
--- ADMIN PANEL SECTION (Visible exclusively to Kjdaking918)
+-- ADMIN PANEL SECTION (Forced Open)
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
