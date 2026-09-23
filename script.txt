@@ -689,5 +689,3 @@ RunService.RenderStepped:Connect(function(dt)
         camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
     end
 end)
-
-print("[Keybind Settings]: Fast Attack & No Stun converted to menu-only toggles!")
