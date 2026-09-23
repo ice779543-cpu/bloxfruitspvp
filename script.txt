@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack & Manual Admin Kick Panel (Forced User ID Check)
+    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Player ESP
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,8 +14,7 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
 
--- Admin Verification: Change this to true directly if you want it 100% guaranteed to show up, 
--- or it checks if your username matches. Let's force it to true for testing so you can see it instantly!
+-- Admin Verification: Set to true so the admin panel displays
 local isAdmin = true 
 
 print("[Admin Menu Debug] Admin status loaded as: " .. tostring(isAdmin) .. " for user: " .. localPlayer.Name)
@@ -218,6 +217,70 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
+-- Player ESP System Setup
+local ESPFolder = Instance.new("Folder")
+ESPFolder.Name = "PlayerEspContainer"
+ESPFolder.Parent = CoreGui
+
+local function createESP(player)
+    if player == localPlayer then return end
+    
+    local function removeESP()
+        if ESPFolder:FindFirstChild(player.Name .. "_ESP") then
+            ESPFolder[player.Name .. "_ESP"]:Destroy()
+        end
+    end
+    
+    player.CharacterRemoving:Connect(removeESP)
+    
+    RunService.RenderStepped:Connect(function()
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            removeESP()
+            return
+        end
+        
+        local character = player.Character
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        
+        if not humanoid or humanoid.Health <= 0 then
+            removeESP()
+            return
+        end
+        
+        local box = ESPFolder:FindFirstChild(player.Name .. "_ESP")
+        if not box then
+            box = Instance.new("Highlight")
+            box.Name = player.Name .. "_ESP"
+            box.Adornee = character
+            box.FillTransparency = 0.5
+            box.OutlineTransparency = 0
+            box.Parent = ESPFolder
+        end
+        
+        -- Color team check (Green for allies, Red for enemies)
+        local isAlly = false
+        if player:GetAttribute("CrewMember") == true or player:GetAttribute("Ally") == true then
+            isAlly = true
+        elseif localPlayer.Team and player.Team and localPlayer.Team == player.Team then
+            if localPlayer.Team.Name:lower() ~= "pirates" then isAlly = true end
+        end
+        
+        box.FillColor = isAlly and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        box.OutlineColor = box.FillColor
+    end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    createESP(p)
+end
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(function(p)
+    if ESPFolder:FindFirstChild(p.Name .. "_ESP") then
+        ESPFolder[p.Name .. "_ESP"]:Destroy()
+    end
+end)
+
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -398,7 +461,7 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Save Settings"
 end)
 
--- ADMIN PANEL SECTION (Forced Open)
+-- ADMIN PANEL SECTION
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
