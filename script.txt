@@ -2,8 +2,8 @@
     Keybind Settings + Fast Attack & No Stun Toggles (Menu Only)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock / Menu Toggle
-    - Press [L] for a Single Super High Jump
-    - Press [H] for a Single Boosted Long Dash (350 speed)
+    - Press [L] for a Single Big Jump
+    - Press [H] for a Single Long Dash (350 speed)
     - Press [T] to TP directly behind the nearest enemy
     - Press [U] to TP directly behind the nearest allied player
     - Fast Attack & No Stun: Controlled via menu interface only
@@ -366,8 +366,8 @@ end
 
 local btnPlayerCam = createFlatRow("Player Camlock", "PlayerCam", 70)
 local btnNpcCam = createFlatRow("NPC Camlock", "NpcCam", 108)
-local btnSuperJump = createFlatRow("Super High Jump", "SuperJump", 146)
-local btnLongDash = createFlatRow("Boosted Long Dash", "LongDash", 184)
+local btnSuperJump = createFlatRow("Big Jump", "SuperJump", 146)
+local btnLongDash = createFlatRow("Long Dash", "LongDash", 184)
 local btnTpEnemy = createFlatRow("TP Behind Enemy", "TpEnemy", 222)
 local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
