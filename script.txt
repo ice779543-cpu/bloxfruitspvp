@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings (Balanced Long Dash + Player ESP)
+    Keybind Settings (Long Dash 350 + Fixed Far-Distance ESP)
     - Username, Level, and Health status displayed above player heads.
     - Red for Pirates, Blue for Marines. Infinite distance.
 ]]
@@ -356,8 +356,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-            -- Balanced Long Dash distance multiplier set to 400
-            char.HumanoidRootPart.AssemblyLinearVelocity = look * 400 + Vector3.new(0, 20, 0)
+            -- Long dash multiplier set to 350
+            char.HumanoidRootPart.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
         end
     elseif input.KeyCode == Keybinds.TpEnemy then
         local char = localPlayer.Character
@@ -421,11 +421,11 @@ RunService.RenderStepped:Connect(function(dt)
                     end
                 end
 
-                -- Position cleanly above head
-                local headPos = head.Position + Vector3.new(0, 2.8, 0)
+                -- Position above the head
+                local headPos = head.Position + Vector3.new(0, 3.5, 0)
                 local screenPos, onScreen = camera:WorldToViewportPoint(headPos)
 
-                if onScreen then
+                if onScreen and screenPos.Z > 0 then
                     label.Visible = true
                     label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
                     label.TextColor3 = teamColor
@@ -456,4 +456,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("[Keybind Settings]: Balanced Long Dash & Loaded Successfully!")
+print("[Keybind Settings]: Long Dash Set to 350 & Loaded Successfully!")
