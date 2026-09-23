@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Player ESP
+    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Billboard Player ESP
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -19,10 +19,17 @@ local isAdmin = true
 
 print("[Admin Menu Debug] Admin status loaded as: " .. tostring(isAdmin) .. " for user: " .. localPlayer.Name)
 
--- Clean up any existing instances
+-- Clean up any existing instances safely
 for _, v in ipairs(CoreGui:GetChildren()) do
-    if v.Name == "KeybindSettingUI" or v.Name == "PvPHUDUI" or v.Name == "PlayerESP" or v.Name == "PlayerEspContainer" then
+    if v.Name == "KeybindSettingUI" or v.Name == "PvPHUDUI" or v.Name == "PlayerESP" then
         v:Destroy()
+    end
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    local pGui = p:FindFirstChild("PlayerGui")
+    if pGui and pGui:FindFirstChild("PlayerESP") then
+        pGui.PlayerESP:Destroy()
     end
 end
 
@@ -139,7 +146,6 @@ task.spawn(function()
     end
 end)
 
--- Track whether player is holding down a tool/move action
 local isHoldingMove = false
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
@@ -217,74 +223,119 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Robust Player ESP System
-local ESPContainer = Instance.new("Folder")
-ESPContainer.Name = "PlayerEspContainer"
-ESPContainer.Parent = CoreGui
-
-local activeHighlights = {}
-
+-- Dynamic Anti-Ally Checker
 local function isPlayerAlly(player)
     if player == localPlayer then return true end
+
     local success, isAlly = pcall(function()
         if player:GetAttribute("CrewMember") == true then return true end
         if player:GetAttribute("Ally") == true then return true end
         return false
     end)
+    
     if success and isAlly then return true end
+
     if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
-        if localPlayer.Team.Name:lower() ~= "pirates" then return true end
+        if localPlayer.Team.Name:lower() ~= "pirates" then
+            return true
+        end
     end
+
     return false
 end
 
-local function removeESP(player)
-    if activeHighlights[player] then
-        activeHighlights[player]:Destroy()
-        activeHighlights[player] = nil
+-- Working Billboard ESP System
+local activeESPs = {}
+
+local function getPlayerColor(player)
+    if isPlayerAlly(player) then
+        return Color3.fromRGB(0, 255, 128)
     end
+    local team = player.Team
+    if team and team.Name:lower():find("marine") then
+        return Color3.fromRGB(0, 150, 255)
+    end
+    return Color3.fromRGB(255, 50, 50)
 end
 
-local function updateESPForPlayer(player)
+local function createESP(player)
     if player == localPlayer then return end
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        removeESP(player)
-        return
+
+    local function setupCharacter(char)
+        if activeESPs[player] then
+            if activeESPs[player].billboard then activeESPs[player].billboard:Destroy() end
+            if activeESPs[player].conn then activeESPs[player].conn:Disconnect() end
+            activeESPs[player] = nil
+        end
+
+        local head = char:WaitForChild("Head", 5)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if not head or not humanoid then return end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "PlayerESP"
+        billboard.Size = UDim2.new(0, 180, 0, 45)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = head
+        billboard.Parent = CoreGui
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 13
+        textLabel.TextColor3 = getPlayerColor(player)
+        textLabel.TextStrokeTransparency = 0
+        textLabel.TextXAlignment = Enum.TextXAlignment.Center
+        textLabel.TextYAlignment = Enum.TextYAlignment.Center
+        textLabel.Parent = billboard
+
+        local elapsed = 0
+        local connection
+        connection = RunService.Heartbeat:Connect(function(dt)
+            elapsed = elapsed + dt
+            if elapsed < 0.2 then return end
+            elapsed = 0
+
+            if not char or not char.Parent or humanoid.Health <= 0 then
+                billboard:Destroy()
+                connection:Disconnect()
+                activeESPs[player] = nil
+                return
+            end
+
+            local lvl = "N/A"
+            if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") then
+                lvl = player.leaderstats.Level.Value
+            elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
+                lvl = player.Data.Level.Value
+            end
+
+            textLabel.TextColor3 = getPlayerColor(player)
+            textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+        end)
+
+        activeESPs[player] = {billboard = billboard, conn = connection}
     end
 
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then
-        removeESP(player)
-        return
+    if player.Character then
+        setupCharacter(player.Character)
     end
-
-    local highlight = activeHighlights[player]
-    if not highlight or highlight.Parent ~= character then
-        if highlight then highlight:Destroy() end
-        highlight = Instance.new("Highlight")
-        highlight.Name = "ESP_Highlight"
-        highlight.Adornee = character
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = character
-        activeHighlights[player] = highlight
-    end
-
-    local isAlly = isPlayerAlly(player)
-    highlight.FillColor = isAlly and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = highlight.FillColor
+    player.CharacterAdded:Connect(setupCharacter)
 end
 
-RunService.RenderStepped:Connect(function()
-    for _, player in ipairs(Players:GetPlayers()) do
-        updateESPForPlayer(player)
-    end
-end)
+for _, p in ipairs(Players:GetPlayers()) do
+    createESP(p)
+end
+Players.PlayerAdded:Connect(createESP)
 
 Players.PlayerRemoving:Connect(function(player)
-    removeESP(player)
+    if activeESPs[player] then
+        if activeESPs[player].billboard then activeESPs[player].billboard:Destroy() end
+        if activeESPs[player].conn then activeESPs[player].conn:Disconnect() end
+        activeESPs[player] = nil
+    end
 end)
 
 -- GUI Setup
@@ -293,7 +344,6 @@ ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
--- Open/Close Toggle Button
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 160, 0, 45)
 OpenButton.Position = UDim2.new(0, 30, 0, 100)
@@ -309,7 +359,6 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Expand Main Frame size securely to accommodate admin section
 local frameHeight = isAdmin and 590 or 440
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
@@ -468,7 +517,6 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Save Settings"
 end)
 
--- ADMIN PANEL SECTION
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
