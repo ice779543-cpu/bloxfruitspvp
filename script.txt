@@ -217,67 +217,74 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Player ESP System Setup
-local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "PlayerEspContainer"
-ESPFolder.Parent = CoreGui
+-- Robust Player ESP System
+local ESPContainer = Instance.new("Folder")
+ESPContainer.Name = "PlayerEspContainer"
+ESPContainer.Parent = CoreGui
 
-local function createESP(player)
-    if player == localPlayer then return end
-    
-    local function removeESP()
-        if ESPFolder:FindFirstChild(player.Name .. "_ESP") then
-            ESPFolder[player.Name .. "_ESP"]:Destroy()
-        end
-    end
-    
-    player.CharacterRemoving:Connect(removeESP)
-    
-    RunService.RenderStepped:Connect(function()
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-            removeESP()
-            return
-        end
-        
-        local character = player.Character
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        
-        if not humanoid or humanoid.Health <= 0 then
-            removeESP()
-            return
-        end
-        
-        local box = ESPFolder:FindFirstChild(player.Name .. "_ESP")
-        if not box then
-            box = Instance.new("Highlight")
-            box.Name = player.Name .. "_ESP"
-            box.Adornee = character
-            box.FillTransparency = 0.5
-            box.OutlineTransparency = 0
-            box.Parent = ESPFolder
-        end
-        
-        -- Color team check (Green for allies, Red for enemies)
-        local isAlly = false
-        if player:GetAttribute("CrewMember") == true or player:GetAttribute("Ally") == true then
-            isAlly = true
-        elseif localPlayer.Team and player.Team and localPlayer.Team == player.Team then
-            if localPlayer.Team.Name:lower() ~= "pirates" then isAlly = true end
-        end
-        
-        box.FillColor = isAlly and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-        box.OutlineColor = box.FillColor
+local activeHighlights = {}
+
+local function isPlayerAlly(player)
+    if player == localPlayer then return true end
+    local success, isAlly = pcall(function()
+        if player:GetAttribute("CrewMember") == true then return true end
+        if player:GetAttribute("Ally") == true then return true end
+        return false
     end)
+    if success and isAlly then return true end
+    if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
+        if localPlayer.Team.Name:lower() ~= "pirates" then return true end
+    end
+    return false
 end
 
-for _, p in ipairs(Players:GetPlayers()) do
-    createESP(p)
-end
-Players.PlayerAdded:Connect(createESP)
-Players.PlayerRemoving:Connect(function(p)
-    if ESPFolder:FindFirstChild(p.Name .. "_ESP") then
-        ESPFolder[p.Name .. "_ESP"]:Destroy()
+local function removeESP(player)
+    if activeHighlights[player] then
+        activeHighlights[player]:Destroy()
+        activeHighlights[player] = nil
     end
+end
+
+local function updateESPForPlayer(player)
+    if player == localPlayer then return end
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        removeESP(player)
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        removeESP(player)
+        return
+    end
+
+    local highlight = activeHighlights[player]
+    if not highlight or highlight.Parent ~= character then
+        if highlight then highlight:Destroy() end
+        highlight = Instance.new("Highlight")
+        highlight.Name = "ESP_Highlight"
+        highlight.Adornee = character
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = character
+        activeHighlights[player] = highlight
+    end
+
+    local isAlly = isPlayerAlly(player)
+    highlight.FillColor = isAlly and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    highlight.OutlineColor = highlight.FillColor
+end
+
+RunService.RenderStepped:Connect(function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        updateESPForPlayer(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
 end)
 
 -- GUI Setup
@@ -492,7 +499,6 @@ if isAdmin then
     UIList.Padding = UDim.new(0, 4)
     UIList.Parent = UserScroll
 
-    -- Dynamic thread checking for script users and building manual kick options
     task.spawn(function()
         while true do
             for _, child in ipairs(UserScroll:GetChildren()) do
@@ -590,23 +596,8 @@ local function toggleMenu()
 end
 OpenButton.MouseButton1Click:Connect(toggleMenu)
 
--- Setup logic for tracking targets & camera locks
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
 local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
-
-local function isPlayerAlly(player)
-    if player == localPlayer then return true end
-    local success, isAlly = pcall(function()
-        if player:GetAttribute("CrewMember") == true then return true end
-        if player:GetAttribute("Ally") == true then return true end
-        return false
-    end)
-    if success and isAlly then return true end
-    if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
-        if localPlayer.Team.Name:lower() ~= "pirates" then return true end
-    end
-    return false
-end
 
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
@@ -668,7 +659,6 @@ local function updateStatusText()
     else StatusLabel.Text, StatusLabel.TextColor3 = "Cam: OFF", Color3.fromRGB(255, 50, 50) end
 end
 
--- Key Input Handler
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     if UserInputService:GetFocusedTextBox() then return end
