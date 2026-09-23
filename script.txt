@@ -1,6 +1,6 @@
 --[[
-    Blox Fruits Keybind Setting Script
-    - Press [N] to toggle the Menu UI on/off (starts hidden).
+    Blox Fruits Keybind Setting Script (Fixed UI Rendering)
+    - Click the floating "Open Menu" button on your screen or press [N] to toggle.
     - Click any keybind box in the menu and press a new key to rebind it.
 ]]
 
@@ -9,24 +9,18 @@ task.spawn(function()
     local Workspace = game:GetService("Workspace")
     local RunService = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
-    local CoreGui = game:GetService("CoreGui")
 
     local localPlayer = Players.LocalPlayer
     local camera = Workspace.CurrentCamera
+    local playerGui = localPlayer:WaitForChild("PlayerGui")
 
     if not localPlayer.Character then
         localPlayer.CharacterAdded:Wait()
     end
 
     -- Cleanup old UI safely
-    if CoreGui:FindFirstChild("BloxFruitsMenuUI") then
-        CoreGui.BloxFruitsMenuUI:Destroy()
-    end
-
-    for _, gui in ipairs(CoreGui:GetChildren()) do
-        if gui.Name == "PlayerESP" then
-            gui:Destroy()
-        end
+    if playerGui:FindFirstChild("BloxFruitsMenuUI") then
+    playerGui.BloxFruitsMenuUI:Destroy()
     end
 
     -- Configurable Keybind Table
@@ -43,7 +37,22 @@ task.spawn(function()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "BloxFruitsMenuUI"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+    ScreenGui.Parent = playerGui
+
+    -- Floating Toggle Button (Guarantees you can open it even if keybind fails)
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0, 110, 0, 35)
+    ToggleButton.Position = UDim2.new(0, 20, 0, 100)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+    ToggleButton.Font = Enum.Font.SourceSansBold
+    ToggleButton.TextSize = 14
+    ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    ToggleButton.Text = "Menu [N]"
+    ToggleButton.Parent = ScreenGui
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 6)
+    ToggleCorner.Parent = ToggleButton
 
     -- Main Frame (Starts Hidden)
     local MainFrame = Instance.new("Frame")
@@ -53,14 +62,14 @@ task.spawn(function()
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
-    MainFrame.Visible = false 
+    MainFrame.Visible = false
     MainFrame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 8)
     UICorner.Parent = MainFrame
 
-    -- Title Bar (Renamed to Keybind Setting)
+    -- Title Bar
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Size = UDim2.new(1, 0, 0, 45)
     TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
@@ -106,6 +115,12 @@ task.spawn(function()
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
     local listeningKey = nil
+
+    local function toggleMenu()
+        MainFrame.Visible = not MainFrame.Visible
+    end
+
+    ToggleButton.MouseButton1Click:Connect(toggleMenu)
 
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
@@ -284,7 +299,7 @@ task.spawn(function()
         end
 
         if input.KeyCode == Keybinds.MenuToggle then
-            MainFrame.Visible = not MainFrame.Visible
+            toggleMenu()
             return
         end
 
@@ -382,7 +397,7 @@ task.spawn(function()
             billboard.StudsOffset = Vector3.new(0, 2.5, 0)
             billboard.AlwaysOnTop = true
             billboard.Adornee = head
-            billboard.Parent = CoreGui
+            billboard.Parent = playerGui
 
             local textLabel = Instance.new("TextLabel")
             textLabel.Size = UDim2.new(1, 0, 1, 0)
