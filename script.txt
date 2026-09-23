@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack (Optimized for Xeno) & No Stun Toggles
+    Keybind Settings + Fast Attack (Xeno Optimized) & Air-Float No Stun Toggles
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock / Menu Toggle (Ignored when typing in chat)
     - Press [L] for a Single Big Jump
@@ -42,7 +42,7 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = {
     AutoClick = false,
-    ClickDelay = 0.05 -- Slight delay buffer to prevent remote spam drop on certain executors
+    ClickDelay = 0.05
 }
 
 local NoStunSettings = {
@@ -144,7 +144,23 @@ task.spawn(function()
     end
 end)
 
--- Hardcore Anti-Stun Loop
+-- Track whether player is holding down a tool/move action
+local isHoldingMove = false
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool") then
+            isHoldingMove = true
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gp)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
+        isHoldingMove = false
+    end
+end)
+
+-- Hardcore Anti-Stun & Air-Float Loop
 RunService.Stepped:Connect(function()
     if not NoStunSettings.Enabled then return end
     local char = localPlayer.Character
@@ -171,8 +187,15 @@ RunService.Stepped:Connect(function()
         end)
     end
     
-    if rootPart and rootPart.Anchored then
-        rootPart.Anchored = false
+    if rootPart then
+        if rootPart.Anchored then
+            rootPart.Anchored = false
+        end
+        
+        -- If No Stun is enabled, player is holding a move, and they are in the air (FreeFall or Jumping state)
+        if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        end
     end
     
     for _, child in ipairs(char:GetDescendants()) do
