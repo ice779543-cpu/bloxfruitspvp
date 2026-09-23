@@ -1,7 +1,7 @@
 --[[
     Keybind Settings + Fast Attack & No Stun Toggles (Menu Only)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
-    - Press [N] to toggle NPC Camlock / Menu Toggle
+    - Press [N] to toggle NPC Camlock / Menu Toggle (Ignored when typing in chat)
     - Press [L] for a Single Big Jump
     - Press [H] for a Single Long Dash Only (350 speed)
     - Press [T] to TP directly behind the nearest enemy
@@ -137,7 +137,7 @@ task.spawn(function()
     end
 end)
 
--- Hardcore Anti-Stun Loop (Bypasses standard state checks)
+-- Hardcore Anti-Stun Loop
 RunService.Stepped:Connect(function()
     if not NoStunSettings.Enabled then return end
     local char = localPlayer.Character
@@ -164,22 +164,13 @@ RunService.Stepped:Connect(function()
         end)
     end
     
-    if rootPart then
-        -- Clear anchoring/freezing typically applied by combat stuns
-        if rootPart.Anchored then
-            rootPart.Anchored = false
-        end
+    if rootPart and rootPart.Anchored then
+        rootPart.Anchored = false
     end
     
-    -- Strip external constraint traps (like BodyVelocity/LinearVelocity stun locks)
     for _, child in ipairs(char:GetDescendants()) do
-        if child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity") then
-            if child.Name ~= "LongDashVelocity" then
-                -- Check if it's an external force locking movement
-                pcall(function()
-                    child:Destroy()
-                end)
-            end
+        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity")) and child.Name ~= "LongDashVelocity" then
+            pcall(function() child:Destroy() end)
         end
     end
 end)
@@ -600,6 +591,9 @@ end)
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
+    -- Ignore key inputs if the user is currently typing in chat or another textbox
+    if UserInputService:GetFocusedTextBox() then return end
+
     if listeningKey then
         if input.KeyCode ~= Enum.KeyCode.Escape then
             Keybinds[listeningKey] = input.KeyCode
@@ -643,11 +637,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if char and char:FindFirstChild("HumanoidRootPart") then
             local root = char.HumanoidRootPart
             local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-            
-            -- Set custom property name to allow velocity application without getting cleaned up by anti-stun loop
-            local dashVelocity = Instance.new("LinearVelocity")
-            dashVelocity.Name = "LongDashVelocity"
-            -- (Dash applies instantaneous velocity directly via AssemblyLinearVelocity below)
             root.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
         end
     elseif input.KeyCode == Keybinds.TpEnemy then
