@@ -3,7 +3,7 @@
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock / Menu Toggle
     - Press [L] for a Single Big Jump
-    - Press [H] for a Single Long Dash (350 speed)
+    - Press [H] for a Single Long Dash Only (350 speed)
     - Press [T] to TP directly behind the nearest enemy
     - Press [U] to TP directly behind the nearest allied player
     - Fast Attack & No Stun: Controlled via menu interface only
@@ -28,7 +28,7 @@ for _, v in ipairs(CoreGui:GetChildren()) do
     end
 end
 
--- Default Keybinds Table (No keybinds assigned for Fast Attack or No Stun)
+-- Default Keybinds Table
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -137,59 +137,52 @@ task.spawn(function()
     end
 end)
 
--- No Stun Logic Implementation
-local function setupCharacterNoStun(character)
-    local humanoid = character:WaitForChild("Humanoid")
-    humanoid.Sit = false
+-- Hardcore Anti-Stun Loop (Bypasses standard state checks)
+RunService.Stepped:Connect(function()
+    if not NoStunSettings.Enabled then return end
+    local char = localPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
     
-    local connections = {}
-    
-    local function handleBadState(newState)
-        if not NoStunSettings.Enabled then return false end
-        if newState == Enum.HumanoidStateType.Ragdoll or 
-           newState == Enum.HumanoidStateType.FallingDown or 
-           newState == Enum.HumanoidStateType.PlatformStanding or
-           newState == Enum.HumanoidStateType.Seated then
+    if humanoid then
+        pcall(function()
             humanoid.Sit = false
             humanoid.PlatformStand = false
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            if character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.Anchored = false
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+            
+            local state = humanoid:GetState()
+            if state == Enum.HumanoidStateType.Ragdoll or 
+               state == Enum.HumanoidStateType.FallingDown or 
+               state == Enum.HumanoidStateType.PlatformStanding or 
+               state == Enum.HumanoidStateType.Seated then
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
-            return true
-        end
-        return false
+        end)
     end
     
-    handleBadState(humanoid:GetState())
-    
-    table.insert(connections, humanoid.StateChanged:Connect(function(_, newState)
-        handleBadState(newState)
-    end))
-    
-    for _, seat in pairs(Workspace:GetDescendants()) do
-        if seat:IsA("Seat") then
-            table.insert(connections, seat:GetPropertyChangedSignal("Occupant"):Connect(function()
-                if NoStunSettings.Enabled and seat.Occupant == humanoid then
-                    task.wait(0.01)
-                    humanoid.Sit = false
-                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                end
-            end))
+    if rootPart then
+        -- Clear anchoring/freezing typically applied by combat stuns
+        if rootPart.Anchored then
+            rootPart.Anchored = false
         end
     end
     
-    table.insert(connections, humanoid.Died:Connect(function()
-        for _, conn in ipairs(connections) do
-            conn:Disconnect()
+    -- Strip external constraint traps (like BodyVelocity/LinearVelocity stun locks)
+    for _, child in ipairs(char:GetDescendants()) do
+        if child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity") then
+            if child.Name ~= "LongDashVelocity" then
+                -- Check if it's an external force locking movement
+                pcall(function()
+                    child:Destroy()
+                end)
+            end
         end
-    end))
-end
-
-if localPlayer.Character then
-    setupCharacterNoStun(localPlayer.Character)
-end
-localPlayer.CharacterAdded:Connect(setupCharacterNoStun)
+    end
+end)
 
 -- Save keybinds to file function
 local function saveKeybinds()
@@ -366,8 +359,8 @@ end
 
 local btnPlayerCam = createFlatRow("Player Camlock", "PlayerCam", 70)
 local btnNpcCam = createFlatRow("NPC Camlock", "NpcCam", 108)
-local btnSuperJump = createFlatRow("Big Jump", "SuperJump", 146)
-local btnLongDash = createFlatRow("Long Dash", "LongDash", 184)
+local btnBigJump = createFlatRow("Big Jump", "SuperJump", 146)
+local btnLongDashOnly = createFlatRow("Long Dash Only", "LongDash", 184)
 local btnTpEnemy = createFlatRow("TP Behind Enemy", "TpEnemy", 222)
 local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
@@ -377,8 +370,8 @@ local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
 local buttonMap = {
     PlayerCam = btnPlayerCam,
     NpcCam = btnNpcCam,
-    SuperJump = btnSuperJump,
-    LongDash = btnLongDash,
+    SuperJump = btnBigJump,
+    LongDash = btnLongDashOnly,
     TpEnemy = btnTpEnemy,
     TpAlly = btnTpAlly
 }
@@ -650,6 +643,11 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if char and char:FindFirstChild("HumanoidRootPart") then
             local root = char.HumanoidRootPart
             local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+            
+            -- Set custom property name to allow velocity application without getting cleaned up by anti-stun loop
+            local dashVelocity = Instance.new("LinearVelocity")
+            dashVelocity.Name = "LongDashVelocity"
+            -- (Dash applies instantaneous velocity directly via AssemblyLinearVelocity below)
             root.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
         end
     elseif input.KeyCode == Keybinds.TpEnemy then
