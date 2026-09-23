@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack & No Stun Toggles (Menu Only)
+    Keybind Settings + Fast Attack (Optimized for Xeno) & No Stun Toggles
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
     - Press [N] to toggle NPC Camlock / Menu Toggle (Ignored when typing in chat)
     - Press [L] for a Single Big Jump
@@ -42,7 +42,7 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = {
     AutoClick = false,
-    ClickDelay = 0
+    ClickDelay = 0.05 -- Slight delay buffer to prevent remote spam drop on certain executors
 }
 
 local NoStunSettings = {
@@ -58,7 +58,7 @@ local FastAttack = {
 -- Safe Module Loader for Fast Attack Remotes
 local function SafeWaitForChild(parent, childName)
     local success, result = pcall(function()
-        return parent:WaitForChild(childName)
+        return parent:WaitForChild(childName, 5)
     end)
     return result
 end
@@ -113,8 +113,9 @@ function FastAttack:AttackNearest()
             if enemy and enemy:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
                 local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
                 pcall(function()
-                    if equippedWeapon:FindFirstChild("LeftClickRemote") then
-                        equippedWeapon.LeftClickRemote:FireServer(direction, 1)
+                    local leftClick = equippedWeapon:FindFirstChild("LeftClickRemote")
+                    if leftClick then
+                        leftClick:FireServer(direction, 1)
                     end
                 end)
             end
