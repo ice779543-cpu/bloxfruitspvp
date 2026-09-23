@@ -1,12 +1,8 @@
 --[[
-    Keybind Settings + Fast Attack (Xeno Optimized) & Air-Float No Stun Toggles
-    - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
-    - Press [N] to toggle NPC Camlock / Menu Toggle (Ignored when typing in chat)
-    - Press [L] for a Single Big Jump
-    - Press [H] for a Single Long Dash Only (350 speed)
-    - Press [T] to TP directly behind the nearest enemy
-    - Press [U] to TP directly behind the nearest allied player
-    - Fast Attack & No Stun: Controlled via menu interface only
+    Keybind Settings + Fast Attack & Admin Panel (Restricted to kjdaking918)
+    - Press [P] to toggle Player Camlock
+    - Press [N] to toggle NPC Camlock / Menu Toggle
+    - Admin Menu automatically appears at the bottom of the main frame if authorized.
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -20,6 +16,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
+
+-- Admin Verification Check
+local isAdmin = (localPlayer.Name == "kjdaking918")
 
 -- Clean up any existing instances
 for _, v in ipairs(CoreGui:GetChildren()) do
@@ -55,7 +54,7 @@ local FastAttack = {
     attackPlayers = true
 }
 
--- Safe Module Loader for Fast Attack Remotes
+-- Safe Module Loader
 local function SafeWaitForChild(parent, childName)
     local success, result = pcall(function()
         return parent:WaitForChild(childName, 5)
@@ -98,8 +97,7 @@ function FastAttack:AttackNearest()
     local OthersEnemies = {}
     local EnemiesFolder = Workspace:FindFirstChild("Enemies")
     local CharactersFolder = Workspace:FindFirstChild("Characters")
-    local Part1 = nil
-    local Part2 = nil
+    local Part1, Part2 = nil, nil
     if EnemiesFolder then Part1 = ProcessEnemies(OthersEnemies, EnemiesFolder) end
     if CharactersFolder then Part2 = ProcessEnemies(OthersEnemies, CharactersFolder) end
     
@@ -114,9 +112,7 @@ function FastAttack:AttackNearest()
                 local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
                 pcall(function()
                     local leftClick = equippedWeapon:FindFirstChild("LeftClickRemote")
-                    if leftClick then
-                        leftClick:FireServer(direction, 1)
-                    end
+                    if leftClick then leftClick:FireServer(direction, 1) end
                 end)
             end
         end
@@ -188,11 +184,7 @@ RunService.Stepped:Connect(function()
     end
     
     if rootPart then
-        if rootPart.Anchored then
-            rootPart.Anchored = false
-        end
-        
-        -- If No Stun is enabled, player is holding a move, and they are in the air (FreeFall or Jumping state)
+        if rootPart.Anchored then rootPart.Anchored = false end
         if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
             rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end
@@ -205,35 +197,25 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Save keybinds to file function
+-- Save / Load Functions
 local function saveKeybinds()
     if writefile and HttpService then
         local encodedTable = {}
-        for keyName, keyCode in pairs(Keybinds) do
-            encodedTable[keyName] = keyCode.Name
-        end
-        pcall(function()
-            writefile(saveFileName, HttpService:JSONEncode(encodedTable))
-        end)
+        for keyName, keyCode in pairs(Keybinds) do encodedTable[keyName] = keyCode.Name end
+        pcall(function() writefile(saveFileName, HttpService:JSONEncode(encodedTable)) end)
     end
 end
 
--- Load saved keybinds if file exists
 local function loadKeybinds()
     if writefile and readfile and isfile and isfile(saveFileName) then
-        local success, decoded = pcall(function()
-            return HttpService:JSONDecode(readfile(saveFileName))
-        end)
+        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(saveFileName)) end)
         if success and type(decoded) == "table" then
             for keyName, enumName in pairs(decoded) do
-                if Keybinds[keyName] ~= nil and Enum.KeyCode[enumName] then
-                    Keybinds[keyName] = Enum.KeyCode[enumName]
-                end
+                if Keybinds[keyName] ~= nil and Enum.KeyCode[enumName] then Keybinds[keyName] = Enum.KeyCode[enumName] end
             end
         end
     end
 end
-
 loadKeybinds()
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -257,10 +239,11 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Main Window Frame
+-- Expand Main Frame size if user is admin to fit panel components nicely
+local frameHeight = isAdmin and 580 or 440
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -220)
+MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -272,21 +255,19 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 8)
 MainCorner.Parent = MainFrame
 
--- Title Bar
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 40)
 TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 16
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "Keybind Settings"
+TitleLabel.Text = isAdmin and "Keybind Settings [ADMIN]" or "Keybind Settings"
 TitleLabel.Parent = MainFrame
 
 local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 8)
 TitleCorner.Parent = TitleLabel
 
--- Status Subtitle
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Position = UDim2.new(0, 0, 0, 42)
@@ -296,7 +277,6 @@ StatusLabel.TextSize, StatusLabel.TextColor3 = 13, Color3.fromRGB(255, 50, 50)
 StatusLabel.Text = "Cam: OFF"
 StatusLabel.Parent = MainFrame
 
--- Helper to create rows (Keybinds)
 local function createFlatRow(name, keyName, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -20, 0, 32)
@@ -337,7 +317,6 @@ local function createFlatRow(name, keyName, yPos)
     return Button
 end
 
--- Helper to create toggle-only rows (No Keybind)
 local function createToggleRow(name, initialState, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -20, 0, 32)
@@ -397,7 +376,6 @@ local buttonMap = {
     TpAlly = btnTpAlly
 }
 
--- Manual Save Button inside the UI
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
 SaveButton.Position = UDim2.new(0, 10, 0, 385)
@@ -420,14 +398,117 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Save Settings"
 end)
 
--- Fast Attack button click action
+-- ADMIN PANEL SECTION (Visible exclusively to kjdaking918)
+if isAdmin then
+    local AdminHeader = Instance.new("TextLabel")
+    AdminHeader.Size = UDim2.new(1, -20, 0, 24)
+    AdminHeader.Position = UDim2.new(0, 10, 0, 425)
+    AdminHeader.BackgroundTransparency = 1
+    AdminHeader.Font = Enum.Font.SourceSansBold
+    AdminHeader.TextSize = 13
+    AdminHeader.TextColor3 = Color3.fromRGB(255, 170, 0)
+    AdminHeader.TextXAlignment = Enum.TextXAlignment.Left
+    AdminHeader.Text = "Script Users in Server:"
+    AdminHeader.Parent = MainFrame
+
+    local UserScroll = Instance.new("ScrollingFrame")
+    UserScroll.Size = UDim2.new(1, -20, 0, 90)
+    UserScroll.Position = UDim2.new(0, 10, 0, 452)
+    UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    UserScroll.BorderSizePixel = 0
+    UserScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    UserScroll.ScrollBarThickness = 4
+    UserScroll.Parent = MainFrame
+
+    local USCorner = Instance.new("UICorner")
+    USCorner.CornerRadius = UDim.new(0, 6)
+    USCorner.Parent = UserScroll
+
+    local UIList = Instance.new("UIListLayout")
+    UIList.SortOrder = Enum.SortOrder.LayoutOrder
+    UIList.Padding = UDim.new(0, 4)
+    UIList.Parent = UserScroll
+
+    -- Function to track and display players using the script
+    task.spawn(function()
+        while true do
+            for _, child in ipairs(UserScroll:GetChildren()) do
+                if child:IsA("Frame") then child:Destroy() end
+            end
+
+            local activeUsersCount = 0
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= localPlayer then
+                    -- Detection heuristic: Checking for CoreGui layout flags or shared GUI presence spawned by the script
+                    local foundScriptUI = false
+                    local pGui = p:FindFirstChild("PlayerGui")
+                    if pGui and pGui:FindFirstChild("KeybindSettingUI") then
+                        foundScriptUI = true
+                    end
+
+                    if foundScriptUI then
+                        activeUsersCount = activeUsersCount + 1
+                        
+                        local row = Instance.new("Frame")
+                        row.Size = UDim2.new(1, 0, 0, 26)
+                        row.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+                        row.Parent = UserScroll
+
+                        local rc = Instance.new("UICorner")
+                        rc.CornerRadius = UDim.new(0, 4)
+                        rc.Parent = row
+
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Size = UDim2.new(0.65, 0, 1, 0)
+                        nameLabel.Position = UDim2.new(0, 8, 0, 0)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Font = Enum.Font.SourceSansBold
+                        nameLabel.TextSize = 12
+                        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        nameLabel.Text = p.Name
+                        nameLabel.Parent = row
+
+                        local kickBtn = Instance.new("TextButton")
+                        kickBtn.Size = UDim2.new(0, 75, 0, 20)
+                        kickBtn.Position = UDim2.new(1, -80, 0.5, -10)
+                        kickBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+                        kickBtn.Font = Enum.Font.SourceSansBold
+                        kickBtn.TextSize = 11
+                        kickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        kickBtn.Text = "Kick"
+                        kickBtn.Parent = row
+
+                        local kc = Instance.new("UICorner")
+                        kc.CornerRadius = UDim.new(0, 4)
+                        kc.Parent = kickBtn
+
+                        local targetPlayer = p
+                        kickBtn.MouseButton1Click:Connect(function()
+                            pcall(function()
+                                -- Force kick client session loop break
+                                if targetPlayer.Character then
+                                    targetPlayer.Character:BreakJoints()
+                                end
+                                targetPlayer:Kick("Session terminated by Admin.")
+                            end)
+                        end)
+                    end
+                end
+            end
+
+            UserScroll.CanvasSize = UDim2.new(0, 0, 0, activeUsersCount * 30)
+            task.wait(2)
+        end
+    end)
+end
+
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- No Stun button click action
 btnNoStun.MouseButton1Click:Connect(function()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
@@ -448,7 +529,7 @@ local function toggleMenu()
 end
 OpenButton.MouseButton1Click:Connect(toggleMenu)
 
--- Variables & Logic
+-- Setup logic for tracking targets & camera locks
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
 local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 local activeESPs = {}
@@ -527,101 +608,9 @@ local function updateStatusText()
     else StatusLabel.Text, StatusLabel.TextColor3 = "Cam: OFF", Color3.fromRGB(255, 50, 50) end
 end
 
--- Team Color Resolver for ESP
-local function getPlayerColor(player)
-    local team = player.Team
-    if team and team.Name:lower():find("marine") then
-        return Color3.fromRGB(0, 150, 255)
-    end
-    return Color3.fromRGB(255, 50, 50)
-end
-
--- Clean Billboard ESP Setup
-local function createESP(player)
-    if player == localPlayer then return end
-
-    local function setupCharacter(char)
-        if activeESPs[player] then
-            activeESPs[player].billboard:Destroy()
-            activeESPs[player].conn:Disconnect()
-            activeESPs[player] = nil
-        end
-
-        local head = char:WaitForChild("Head", 5)
-        local humanoid = char:WaitForChild("Humanoid", 5)
-        if not head or not humanoid then return end
-
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "PlayerESP"
-        billboard.Size = UDim2.new(0, 180, 0, 45)
-        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = head
-        billboard.Parent = CoreGui
-
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.Font = Enum.Font.SourceSansBold
-        textLabel.TextSize = 13
-        textLabel.TextColor3 = getPlayerColor(player)
-        textLabel.TextStrokeTransparency = 0
-        textLabel.TextXAlignment = Enum.TextXAlignment.Center
-        textLabel.TextYAlignment = Enum.TextYAlignment.Center
-        textLabel.Parent = billboard
-
-        local elapsed = 0
-        local connection
-        connection = RunService.Heartbeat:Connect(function(dt)
-            elapsed = elapsed + dt
-            if elapsed < 0.2 then return end
-            elapsed = 0
-
-            if not char or not char.Parent or humanoid.Health <= 0 then
-                billboard:Destroy()
-                connection:Disconnect()
-                activeESPs[player] = nil
-                return
-            end
-
-            local lvl = "N/A"
-            if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") then
-                lvl = player.leaderstats.Level.Value
-            elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
-                lvl = player.Data.Level.Value
-            end
-
-            textLabel.TextColor3 = getPlayerColor(player)
-            textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
-        end)
-
-        activeESPs[player] = {billboard = billboard, conn = connection}
-    end
-
-    if player.Character then
-        setupCharacter(player.Character)
-    end
-    player.CharacterAdded:Connect(setupCharacter)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do
-    createESP(p)
-end
-Players.PlayerAdded:Connect(createESP)
-
-Players.PlayerRemoving:Connect(function(player)
-    if activeESPs[player] then
-        activeESPs[player].billboard:Destroy()
-        activeESPs[player].conn:Disconnect()
-        activeESPs[player] = nil
-    end
-end)
-
--- Inputs
+-- Key Input Handler
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
-    -- Ignore key inputs if the user is currently typing in chat or another textbox
     if UserInputService:GetFocusedTextBox() then return end
 
     if listeningKey then
@@ -637,11 +626,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
         return
     end
 
-    if input.KeyCode == Keybinds.MenuToggle then 
-        toggleMenu() 
-        return 
-    end
-
+    if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
     if gp then return end
 
     if input.KeyCode == Keybinds.PlayerCam then
@@ -659,32 +644,27 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Keybinds.SuperJump then
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            local root = char.HumanoidRootPart
-            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 180, root.AssemblyLinearVelocity.Z)
+            char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(char.HumanoidRootPart.AssemblyLinearVelocity.X, 180, char.HumanoidRootPart.AssemblyLinearVelocity.Z)
         end
     elseif input.KeyCode == Keybinds.LongDash then
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            local root = char.HumanoidRootPart
             local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-            root.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
+            char.HumanoidRootPart.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
         end
     elseif input.KeyCode == Keybinds.TpEnemy then
-        local char = localPlayer.Character
         local tChar = getClosestPlayer()
-        if char and char:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
+            localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
         end
     elseif input.KeyCode == Keybinds.TpAlly then
-        local char = localPlayer.Character
         local tChar = getClosestAlly()
-        if char and char:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
+            localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
         end
     end
 end)
 
--- Main Camera Lock Loop
 RunService.RenderStepped:Connect(function(dt)
     if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
         local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
@@ -700,9 +680,6 @@ RunService.RenderStepped:Connect(function(dt)
 
         local targetRoot = currentTarget.HumanoidRootPart
         local currentCamCFrame = camera.CFrame
-        local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
-        local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
-        
-        camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
+        camera.CFrame = currentCamCFrame:Lerp(CFrame.new(currentCamCFrame.Position, targetRoot.Position + Vector3.new(0, 0.2, 0)), 1 - math.exp(-35 * dt))
     end
 end)
