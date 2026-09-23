@@ -1,6 +1,6 @@
 --[[
-    Blox Fruits Custom Keybind Menu Script (ESP, Anti-Ally Fix, Jump, Dash, TP, Camlock)
-    - Press [N] to toggle the Menu UI on/off.
+    Blox Fruits Keybind Setting Script
+    - Press [N] to toggle the Menu UI on/off (starts hidden).
     - Click any keybind box in the menu and press a new key to rebind it.
 ]]
 
@@ -29,7 +29,7 @@ task.spawn(function()
         end
     end
 
-    -- Configurable Keybind Table (Menu toggle is now [N])
+    -- Configurable Keybind Table
     local Keybinds = {
         PlayerCam = Enum.KeyCode.P,
         NpcCam = Enum.KeyCode.C,
@@ -45,7 +45,7 @@ task.spawn(function()
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = CoreGui
 
-    -- Main Frame
+    -- Main Frame (Starts Hidden)
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 320, 0, 380)
     MainFrame.Position = UDim2.new(0.5, -160, 0.5, -190)
@@ -53,20 +53,21 @@ task.spawn(function()
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
+    MainFrame.Visible = false 
     MainFrame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 8)
     UICorner.Parent = MainFrame
 
-    -- Title Bar
+    -- Title Bar (Renamed to Keybind Setting)
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Size = UDim2.new(1, 0, 0, 45)
     TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
     TitleLabel.Font = Enum.Font.SourceSansBold
     TitleLabel.TextSize = 18
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.Text = "Blox Fruits Control Hub"
+    TitleLabel.Text = "Keybind Setting"
     TitleLabel.Parent = MainFrame
 
     local TitleCorner = Instance.new("UICorner")
@@ -104,7 +105,7 @@ task.spawn(function()
     local currentTarget = nil
     local activeESPs = {}
     local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
-    local listeningKey = nil -- Tracks which action is currently waiting for a new keybind
+    local listeningKey = nil
 
     local function isPlayerAlly(player)
         if player == localPlayer then return true end
@@ -205,7 +206,6 @@ task.spawn(function()
         end
     end
 
-    -- UI Builder Helper for Keybind Rows
     local function createKeybindRow(name, keyName, index)
         local Row = Instance.new("Frame")
         Row.Size = UDim2.new(1, 0, 0, 36)
@@ -251,7 +251,6 @@ task.spawn(function()
         return Button
     end
 
-    -- Build Menu Rows
     local btnPlayerCam = createKeybindRow("Player Camlock", "PlayerCam", 1)
     local btnNpcCam = createKeybindRow("NPC Camlock", "NpcCam", 2)
     local btnSuperJump = createKeybindRow("Super High Jump", "SuperJump", 3)
@@ -268,11 +267,9 @@ task.spawn(function()
         TpAlly = btnTpAlly
     }
 
-    -- Key Press Handler
     UserInputService.InputBegan:Connect(function(input, gp)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
-        -- Handle Rebinding Mode
         if listeningKey then
             if input.KeyCode ~= Enum.KeyCode.Escape then
                 Keybinds[listeningKey] = input.KeyCode
@@ -286,7 +283,6 @@ task.spawn(function()
             return
         end
 
-        -- Toggle Menu UI visibility with [N]
         if input.KeyCode == Keybinds.MenuToggle then
             MainFrame.Visible = not MainFrame.Visible
             return
@@ -294,7 +290,6 @@ task.spawn(function()
 
         if gp then return end
 
-        -- Execute Features based on current dynamic keybinds
         if input.KeyCode == Keybinds.PlayerCam then
             if npcCamlockActive then npcCamlockActive = false end
             playerCamlockActive = not playerCamlockActive
@@ -359,7 +354,6 @@ task.spawn(function()
         end
     end)
 
-    -- ESP Team Color Resolver
     local function getPlayerColor(player)
         local team = player.Team
         if team and team.Name:lower():find("marine") then
@@ -368,7 +362,6 @@ task.spawn(function()
         return Color3.fromRGB(255, 50, 50)
     end
 
-    -- ESP Setup
     local function createESP(player)
         if player == localPlayer then return end
 
@@ -449,7 +442,6 @@ task.spawn(function()
         end
     end)
 
-    -- Main Camera Lock Loop
     RunService.RenderStepped:Connect(function(dt)
         if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
