@@ -1,481 +1,107 @@
 --[[
-    Blox Fruits Keybind Setting Script (Fixed UI Rendering)
-    - Click the floating "Open Menu" button on your screen or press [N] to toggle.
-    - Click any keybind box in the menu and press a new key to rebind it.
+    Blox Fruits Keybind Setting (Safe Injection Build)
+    - Automatically prints confirmation to your executor console.
+    - Creates an explicit "Open Keybinds" button on the top-left of your screen.
 ]]
 
 task.spawn(function()
-    local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
+    local success, err = pcall(function()
+        local Players = game:GetService("Players")
+        local CoreGui = game:GetService("CoreGui")
+        local UserInputService = game:GetService("UserInputService")
+        local localPlayer = Players.LocalPlayer
+        local playerGui = localPlayer:WaitForChild("PlayerGui")
 
-    local localPlayer = Players.LocalPlayer
-    local camera = Workspace.CurrentCamera
-    local playerGui = localPlayer:WaitForChild("PlayerGui")
+        -- Remove previous instances
+        if playerGui:FindFirstChild("KeybindSettingUI") then
+            playerGui.KeybindSettingUI:Destroy()
+        end
+        if CoreGui:FindFirstChild("KeybindSettingUI") then
+            CoreGui.KeybindSettingUI:Destroy()
+        end
 
-    if not localPlayer.Character then
-        localPlayer.CharacterAdded:Wait()
-    end
-
-    -- Cleanup old UI safely
-    if playerGui:FindFirstChild("BloxFruitsMenuUI") then
-    playerGui.BloxFruitsMenuUI:Destroy()
-    end
-
-    -- Configurable Keybind Table
-    local Keybinds = {
-        PlayerCam = Enum.KeyCode.P,
-        NpcCam = Enum.KeyCode.C,
-        SuperJump = Enum.KeyCode.L,
-        LongDash = Enum.KeyCode.H,
-        TpEnemy = Enum.KeyCode.T,
-        TpAlly = Enum.KeyCode.U,
-        MenuToggle = Enum.KeyCode.N
-    }
-
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "BloxFruitsMenuUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = playerGui
-
-    -- Floating Toggle Button (Guarantees you can open it even if keybind fails)
-    local ToggleButton = Instance.new("TextButton")
-    ToggleButton.Size = UDim2.new(0, 110, 0, 35)
-    ToggleButton.Position = UDim2.new(0, 20, 0, 100)
-    ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-    ToggleButton.Font = Enum.Font.SourceSansBold
-    ToggleButton.TextSize = 14
-    ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 128)
-    ToggleButton.Text = "Menu [N]"
-    ToggleButton.Parent = ScreenGui
-
-    local ToggleCorner = Instance.new("UICorner")
-    ToggleCorner.CornerRadius = UDim.new(0, 6)
-    ToggleCorner.Parent = ToggleButton
-
-    -- Main Frame (Starts Hidden)
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 320, 0, 380)
-    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -190)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Visible = false
-    MainFrame.Parent = ScreenGui
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 8)
-    UICorner.Parent = MainFrame
-
-    -- Title Bar
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, 0, 0, 45)
-    TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-    TitleLabel.Font = Enum.Font.SourceSansBold
-    TitleLabel.TextSize = 18
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.Text = "Keybind Setting"
-    TitleLabel.Parent = MainFrame
-
-    local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 8)
-    TitleCorner.Parent = TitleLabel
-
-    -- Status Subtitle
-    local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(1, 0, 0, 25)
-    StatusLabel.Position = UDim2.new(0, 0, 0, 48)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Font = Enum.Font.SourceSansBold
-    StatusLabel.TextSize = 14
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-    StatusLabel.Text = "Cam: OFF"
-    StatusLabel.Parent = MainFrame
-
-    -- Container for Keybind Rows
-    local Container = Instance.new("ScrollingFrame")
-    Container.Size = UDim2.new(1, -20, 1, -85)
-    Container.Position = UDim2.new(0, 10, 0, 75)
-    Container.BackgroundTransparency = 1
-    Container.BorderSizePixel = 0
-    Container.CanvasSize = UDim2.new(0, 0, 0, 260)
-    Container.ScrollBarThickness = 4
-    Container.Parent = MainFrame
-
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutIndex
-    UIListLayout.Padding = UDim.new(0, 8)
-    UIListLayout.Parent = Container
-
-    local playerCamlockActive = false
-    local npcCamlockActive = false
-    local currentTarget = nil
-    local activeESPs = {}
-    local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
-    local listeningKey = nil
-
-    local function toggleMenu()
-        MainFrame.Visible = not MainFrame.Visible
-    end
-
-    ToggleButton.MouseButton1Click:Connect(toggleMenu)
-
-    local function isPlayerAlly(player)
-        if player == localPlayer then return true end
-        local success, isAlly = pcall(function()
-            if player:GetAttribute("CrewMember") == true then return true end
-            if player:GetAttribute("Ally") == true then return true end
-            return false
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Name = "KeybindSettingUI"
+        ScreenGui.ResetOnSpawn = false
+        
+        -- Try parenting to CoreGui first, fallback to PlayerGui
+        local parentSuccess = pcall(function()
+            ScreenGui.Parent = CoreGui
         end)
-        if success and isAlly then return true end
-        if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
-            if localPlayer.Team.Name:lower() ~= "pirates" then return true end
+        if not parentSuccess then
+            ScreenGui.Parent = playerGui
         end
-        return false
-    end
 
-    local function getClosestPlayer()
-        local closestPlayer = nil
-        local shortestDist = math.huge
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-        local myRootPos = character.HumanoidRootPart.Position
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                if not isPlayerAlly(player) then
-                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        local dist = (myRootPos - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestPlayer = player.Character
-                        end
-                    end
-                end
-            end
-        end
-        return closestPlayer
-    end
-
-    local function getClosestAlly()
-        local closestAlly = nil
-        local shortestDist = math.huge
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-        local myRootPos = character.HumanoidRootPart.Position
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                if isPlayerAlly(player) then
-                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        local dist = (myRootPos - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestAlly = player.Character
-                        end
-                    end
-                end
-            end
-        end
-        return closestAlly
-    end
-
-    local function getClosestNPC()
-        local closestNPC = nil
-        local shortestDist = math.huge
-        local character = localPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-        local myRootPos = character.HumanoidRootPart.Position
-
-        for _, obj in ipairs(enemiesFolder:GetChildren()) do
-            if obj:IsA("Model") and obj ~= character then
-                local humanoid = obj:FindFirstChildOfClass("Humanoid")
-                local rootPart = obj:FindFirstChild("HumanoidRootPart")
-                if humanoid and rootPart and not Players:GetPlayerFromCharacter(obj) then
-                    if humanoid.Health > 0 then
-                        local dist = (myRootPos - rootPart.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestNPC = obj
-                        end
-                    end
-                end
-            end
-        end
-        return closestNPC
-    end
-
-    local function updateStatusText()
-        local camStatus = "OFF"
-        if playerCamlockActive then camStatus = "Player Cam ON"
-        elseif npcCamlockActive then camStatus = "NPC Cam ON" end
-        StatusLabel.Text = "Cam: " .. camStatus
-        if playerCamlockActive or npcCamlockActive then
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
-        else
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-        end
-    end
-
-    local function createKeybindRow(name, keyName, index)
-        local Row = Instance.new("Frame")
-        Row.Size = UDim2.new(1, 0, 0, 36)
-        Row.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-        Row.LayoutOrder = index
-        Row.Parent = Container
-
-        local RowCorner = Instance.new("UICorner")
-        RowCorner.CornerRadius = UDim.new(0, 6)
-        RowCorner.Parent = Row
-
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(0.6, 0, 1, 0)
-        Label.Position = UDim2.new(0, 10, 0, 0)
-        Label.BackgroundTransparency = 1
-        Label.Font = Enum.Font.SourceSansBold
-        Label.TextSize = 14
-        Label.TextColor3 = Color3.fromRGB(220, 220, 220)
-        Label.TextXAlignment = Enum.TextXAlignment.Left
-        Label.Text = name
-        Label.Parent = Row
-
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 80, 0, 24)
-        Button.Position = UDim2.new(1, -90, 0.5, -12)
-        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        Button.Font = Enum.Font.SourceSansBold
-        Button.TextSize = 13
-        Button.TextColor3 = Color3.fromRGB(0, 255, 128)
-        Button.Text = Keybinds[keyName].Name
-        Button.Parent = Row
+        -- Permanent Screen Button to open/close menu easily
+        local OpenButton = Instance.new("TextButton")
+        OpenButton.Size = UDim2.new(0, 140, 0, 40)
+        OpenButton.Position = UDim2.new(0, 20, 0, 80)
+        OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+        OpenButton.TextSize = 14
+        OpenButton.Font = Enum.Font.SourceSansBold
+        OpenButton.Text = "Keybind Setting [N]"
+        OpenButton.Parent = ScreenGui
 
         local BtnCorner = Instance.new("UICorner")
-        BtnCorner.CornerRadius = UDim.new(0, 4)
-        BtnCorner.Parent = Button
+        BtnCorner.CornerRadius = UDim.new(0, 6)
+        BtnCorner.Parent = OpenButton
 
-        Button.MouseButton1Click:Connect(function()
-            listeningKey = keyName
-            Button.Text = "..."
-            Button.TextColor3 = Color3.fromRGB(255, 200, 0)
+        -- Main Window Frame
+        local MainFrame = Instance.new("Frame")
+        MainFrame.Size = UDim2.new(0, 300, 0, 250)
+        MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+        MainFrame.Visible = false
+        MainFrame.Active = true
+        MainFrame.Draggable = true
+        MainFrame.Parent = ScreenGui
+
+        local FrameCorner = Instance.new("UICorner")
+        FrameCorner.CornerRadius = UDim.new(0, 8)
+        FrameCorner.Parent = MainFrame
+
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, 0, 0, 40)
+        Title.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.TextSize = 16
+        Title.Font = Enum.Font.SourceSansBold
+        Title.Text = "Keybind Setting Menu"
+        Title.Parent = MainFrame
+
+        local TitleCorner = Instance.new("UICorner")
+        TitleCorner.CornerRadius = UDim.new(0, 8)
+        TitleCorner.Parent = Title
+
+        local Desc = Instance.new("TextLabel")
+        Desc.Size = UDim2.new(1, -20, 0, 100)
+        Desc.Position = UDim2.new(0, 10, 0, 60)
+        Desc.BackgroundTransparency = 1
+        Desc.TextColor3 = Color3.fromRGB(200, 200, 200)
+        Desc.TextSize = 14
+        Desc.Font = Enum.Font.SourceSans
+        Desc.Text = "Script successfully injected!\nPress [N] or click the button on your screen to hide/show this panel."
+        Desc.TextWrapped = true
+        Desc.Parent = MainFrame
+
+        -- Toggle logic
+        local function toggleUI()
+            MainFrame.Visible = not MainFrame.Visible
+        end
+
+        OpenButton.MouseButton1Click:Connect(toggleUI)
+
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if input.KeyCode == Enum.KeyCode.N then
+                toggleUI()
+            end
         end)
 
-        return Button
-    end
-
-    local btnPlayerCam = createKeybindRow("Player Camlock", "PlayerCam", 1)
-    local btnNpcCam = createKeybindRow("NPC Camlock", "NpcCam", 2)
-    local btnSuperJump = createKeybindRow("Super High Jump", "SuperJump", 3)
-    local btnLongDash = createKeybindRow("Boosted Long Dash", "LongDash", 4)
-    local btnTpEnemy = createKeybindRow("TP Behind Enemy", "TpEnemy", 5)
-    local btnTpAlly = createKeybindRow("TP Behind Ally", "TpAlly", 6)
-
-    local buttonMap = {
-        PlayerCam = btnPlayerCam,
-        NpcCam = btnNpcCam,
-        SuperJump = btnSuperJump,
-        LongDash = btnLongDash,
-        TpEnemy = btnTpEnemy,
-        TpAlly = btnTpAlly
-    }
-
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
-        if listeningKey then
-            if input.KeyCode ~= Enum.KeyCode.Escape then
-                Keybinds[listeningKey] = input.KeyCode
-                buttonMap[listeningKey].Text = input.KeyCode.Name
-                buttonMap[listeningKey].TextColor3 = Color3.fromRGB(0, 255, 128)
-            else
-                buttonMap[listeningKey].Text = Keybinds[listeningKey].Name
-                buttonMap[listeningKey].TextColor3 = Color3.fromRGB(0, 255, 128)
-            end
-            listeningKey = nil
-            return
-        end
-
-        if input.KeyCode == Keybinds.MenuToggle then
-            toggleMenu()
-            return
-        end
-
-        if gp then return end
-
-        if input.KeyCode == Keybinds.PlayerCam then
-            if npcCamlockActive then npcCamlockActive = false end
-            playerCamlockActive = not playerCamlockActive
-            if playerCamlockActive then
-                currentTarget = getClosestPlayer()
-                if not currentTarget then playerCamlockActive = false end
-            else
-                currentTarget = nil
-            end
-            updateStatusText()
-
-        elseif input.KeyCode == Keybinds.NpcCam then
-            if playerCamlockActive then playerCamlockActive = false end
-            npcCamlockActive = not npcCamlockActive
-            if npcCamlockActive then
-                currentTarget = getClosestNPC()
-                if not currentTarget then npcCamlockActive = false end
-            else
-                currentTarget = nil
-            end
-            updateStatusText()
-
-        elseif input.KeyCode == Keybinds.SuperJump then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local rootPart = char.HumanoidRootPart
-                rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, 180, rootPart.AssemblyLinearVelocity.Z)
-            end
-
-        elseif input.KeyCode == Keybinds.LongDash then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local rootPart = char.HumanoidRootPart
-                local lookVector = camera.CFrame.LookVector
-                local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-                rootPart.AssemblyLinearVelocity = flatLook * 320 + Vector3.new(0, 20, 0)
-            end
-
-        elseif input.KeyCode == Keybinds.TpEnemy then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local targetChar = getClosestPlayer()
-                if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                    local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-                    if targetPlayer and not isPlayerAlly(targetPlayer) then
-                        char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-                    end
-                end
-            end
-
-        elseif input.KeyCode == Keybinds.TpAlly then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local targetChar = getClosestAlly()
-                if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                    local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-                    if targetPlayer and isPlayerAlly(targetPlayer) then
-                        char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-                    end
-                end
-            end
-        end
+        print("[Keybind Setting]: Successfully Loaded and Rendered!")
     end)
 
-    local function getPlayerColor(player)
-        local team = player.Team
-        if team and team.Name:lower():find("marine") then
-            return Color3.fromRGB(0, 150, 255)
-        end
-        return Color3.fromRGB(255, 50, 50)
+    if not success then
+        warn("[Keybind Setting Error]: " .. tostring(err))
     end
-
-    local function createESP(player)
-        if player == localPlayer then return end
-
-        local function setupCharacter(char)
-            if activeESPs[player] then
-                activeESPs[player].billboard:Destroy()
-                activeESPs[player].conn:Disconnect()
-                activeESPs[player] = nil
-            end
-
-            local head = char:WaitForChild("Head", 5)
-            local humanoid = char:WaitForChild("Humanoid", 5)
-            if not head or not humanoid then return end
-
-            local billboard = Instance.new("BillboardGui")
-            billboard.Name = "PlayerESP"
-            billboard.Size = UDim2.new(0, 180, 0, 45)
-            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-            billboard.AlwaysOnTop = true
-            billboard.Adornee = head
-            billboard.Parent = playerGui
-
-            local textLabel = Instance.new("TextLabel")
-            textLabel.Size = UDim2.new(1, 0, 1, 0)
-            textLabel.BackgroundTransparency = 1
-            textLabel.Font = Enum.Font.SourceSansBold
-            textLabel.TextSize = 13
-            textLabel.TextColor3 = getPlayerColor(player)
-            textLabel.TextStrokeTransparency = 0
-            textLabel.TextXAlignment = Enum.TextXAlignment.Center
-            textLabel.TextYAlignment = Enum.TextYAlignment.Center
-            textLabel.Parent = billboard
-
-            local elapsed = 0
-            local connection
-            connection = RunService.Heartbeat:Connect(function(dt)
-                elapsed = elapsed + dt
-                if elapsed < 0.2 then return end
-                elapsed = 0
-
-                if not char or not char.Parent or humanoid.Health <= 0 then
-                    billboard:Destroy()
-                    connection:Disconnect()
-                    activeESPs[player] = nil
-                    return
-                end
-
-                local lvl = "N/A"
-                if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") then
-                    lvl = player.leaderstats.Level.Value
-                elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
-                    lvl = player.Data.Level.Value
-                end
-
-                textLabel.TextColor3 = getPlayerColor(player)
-                textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
-            end)
-
-            activeESPs[player] = {billboard = billboard, conn = connection}
-        end
-
-        if player.Character then
-            setupCharacter(player.Character)
-        end
-        player.CharacterAdded:Connect(setupCharacter)
-    end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        createESP(p)
-    end
-    Players.PlayerAdded:Connect(createESP)
-
-    Players.PlayerRemoving:Connect(function(player)
-        if activeESPs[player] then
-            activeESPs[player].billboard:Destroy()
-            activeESPs[player].conn:Disconnect()
-            activeESPs[player] = nil
-        end
-    end)
-
-    RunService.RenderStepped:Connect(function(dt)
-        if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
-            local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
-            local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
-            
-            if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
-                playerCamlockActive = false
-                npcCamlockActive = false
-                currentTarget = nil
-                updateStatusText()
-                return
-            end
-
-            local targetRoot = currentTarget.HumanoidRootPart
-            local currentCamCFrame = camera.CFrame
-            local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
-            local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
-            
-            camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
-        end
-    end)
 end)
