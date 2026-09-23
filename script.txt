@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack & Admin Panel (Restricted to kjdaking918)
+    Keybind Settings + Fast Attack & Manual Admin Kick Panel (Restricted to kjdaking918)
     - Press [P] to toggle Player Camlock
     - Press [N] to toggle NPC Camlock / Menu Toggle
     - Admin Menu automatically appears at the bottom of the main frame if authorized.
@@ -239,7 +239,7 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Expand Main Frame size if user is admin to fit panel components nicely
+-- Expand Main Frame size if user is admin
 local frameHeight = isAdmin and 580 or 440
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
@@ -429,7 +429,7 @@ if isAdmin then
     UIList.Padding = UDim.new(0, 4)
     UIList.Parent = UserScroll
 
-    -- Function to track and display players using the script
+    -- Loop to update and list users currently running the script
     task.spawn(function()
         while true do
             for _, child in ipairs(UserScroll:GetChildren()) do
@@ -439,7 +439,6 @@ if isAdmin then
             local activeUsersCount = 0
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= localPlayer then
-                    -- Detection heuristic: Checking for CoreGui layout flags or shared GUI presence spawned by the script
                     local foundScriptUI = false
                     local pGui = p:FindFirstChild("PlayerGui")
                     if pGui and pGui:FindFirstChild("KeybindSettingUI") then
@@ -469,6 +468,7 @@ if isAdmin then
                         nameLabel.Text = p.Name
                         nameLabel.Parent = row
 
+                        -- Manual Kick Button for each user
                         local kickBtn = Instance.new("TextButton")
                         kickBtn.Size = UDim2.new(0, 75, 0, 20)
                         kickBtn.Position = UDim2.new(1, -80, 0.5, -10)
@@ -476,7 +476,7 @@ if isAdmin then
                         kickBtn.Font = Enum.Font.SourceSansBold
                         kickBtn.TextSize = 11
                         kickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        kickBtn.Text = "Kick"
+                        kickBtn.Text = "Kick User"
                         kickBtn.Parent = row
 
                         local kc = Instance.new("UICorner")
@@ -486,11 +486,10 @@ if isAdmin then
                         local targetPlayer = p
                         kickBtn.MouseButton1Click:Connect(function()
                             pcall(function()
-                                -- Force kick client session loop break
                                 if targetPlayer.Character then
                                     targetPlayer.Character:BreakJoints()
                                 end
-                                targetPlayer:Kick("Session terminated by Admin.")
+                                targetPlayer:Kick("Session terminated manually by Admin.")
                             end)
                         end)
                     end
