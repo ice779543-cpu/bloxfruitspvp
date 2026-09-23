@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float (Zero-Fall), & Billboard Player ESP
+    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float (Zero-Fall), & Fixed No Stun Toggle
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -161,15 +161,22 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Absolute Air-Float & Anti-Stun Loop (Zero-Fall Fix Integrated)
-local floatVelocity = nil
+-- Absolute Air-Float & Anti-Stun Loop (Properly Responding to Toggle States)
+local floatAttachment = nil
+local floatLinearVelocity = nil
 
 RunService.Stepped:Connect(function()
-    if not NoStunSettings.Enabled then return end
     local char = localPlayer.Character
-    if not char then return end
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+    
+    -- Cleanup floating constraint immediately if NoStun is turned off
+    if not NoStunSettings.Enabled then
+        if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
+        if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+        return
+    end
+
     local humanoid = char:FindFirstChildOfClass("Humanoid")
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
     
     if humanoid then
         pcall(function()
@@ -193,21 +200,26 @@ RunService.Stepped:Connect(function()
     if rootPart then
         if rootPart.Anchored then rootPart.Anchored = false end
         
-        -- If holding move in midair, inject a persistent antigravity constraint
+        -- If holding move in midair, lock vertical position securely
         if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
-            if not floatVelocity or floatVelocity.Parent ~= rootPart then
-                if floatVelocity then floatVelocity:Destroy() end
-                floatVelocity = Instance.new("BodyVelocity")
-                floatVelocity.Name = "AirFloatConstraint"
-                floatVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Lock only the Y axis
-                floatVelocity.Velocity = Vector3.new(0, 0, 0)
-                floatVelocity.Parent = rootPart
+            if not floatAttachment or floatAttachment.Parent ~= rootPart then
+                if floatAttachment then floatAttachment:Destroy() end
+                if floatLinearVelocity then floatLinearVelocity:Destroy() end
+                
+                floatAttachment = Instance.new("Attachment")
+                floatAttachment.Name = "FloatAttachment"
+                floatAttachment.Parent = rootPart
+                
+                floatLinearVelocity = Instance.new("LinearVelocity")
+                floatLinearVelocity.Name = "AirFloatConstraint"
+                floatLinearVelocity.Attachment0 = floatAttachment
+                floatLinearVelocity.MaxForce = math.huge
+                floatLinearVelocity.VectorVelocity = Vector3.new(0, 0, 0)
+                floatLinearVelocity.Parent = rootPart
             end
         else
-            if floatVelocity then
-                floatVelocity:Destroy()
-                floatVelocity = nil
-            end
+            if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
+            if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
         end
     end
     
@@ -705,7 +717,8 @@ local function getClosestNPC()
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
     local myRootPos = char.HumanoidRootPart.Position
 
-    for _, obj in ipairs(enemiesFolder:GetChildren()) do
+    local enemiesFolderTarget = Workspace:FindFirstChild("Enemies") or Workspace
+    for _, obj in ipairs(enemiesFolderTarget:GetChildren()) do
         if obj:IsA("Model") and obj ~= char then
             local hum, root = obj:FindFirstChildOfClass("Humanoid"), obj:FindFirstChild("HumanoidRootPart")
             if hum and root and not Players:GetPlayerFromCharacter(obj) and hum.Health > 0 then
