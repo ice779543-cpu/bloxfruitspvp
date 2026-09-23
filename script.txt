@@ -102,20 +102,26 @@ function FastAttack:AttackNearest()
     local Part2 = nil
     if EnemiesFolder then Part1 = ProcessEnemies(OthersEnemies, EnemiesFolder) end
     if CharactersFolder then Part2 = ProcessEnemies(OthersEnemies, CharactersFolder) end
+    
     local character = localPlayer.Character
     if not character then return end
+    
     local equippedWeapon = character:FindFirstChildOfClass("Tool")
-    if equippedWeapon and equippedWeapon:FindFirstChild("LeftClickRemote") then
+    if equippedWeapon then
         for _, enemyData in ipairs(OthersEnemies) do
             local enemy = enemyData[1]
             if enemy and enemy:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
                 local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
                 pcall(function()
-                    equippedWeapon.LeftClickRemote:FireServer(direction, 1)
+                    if equippedWeapon:FindFirstChild("LeftClickRemote") then
+                        equippedWeapon.LeftClickRemote:FireServer(direction, 1)
+                    end
                 end)
             end
         end
-    elseif #OthersEnemies > 0 then
+    end
+    
+    if #OthersEnemies > 0 then
         self:Attack(Part1 or Part2, OthersEnemies)
     end
 end
