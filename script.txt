@@ -1,7 +1,12 @@
 --[[
-    Keybind Settings (Long Dash 350 + Fixed Far-Distance ESP)
-    - Username, Level, and Health status displayed above player heads.
-    - Red for Pirates, Blue for Marines. Infinite distance.
+    Keybind Settings (Single Billboard ESP + Long Dash 350)
+    - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
+    - Press [N] to toggle NPC Camlock
+    - Press [L] for a Single Super High Jump
+    - Press [H] for a Single Boosted Long Dash (350 speed)
+    - Press [T] to TP directly behind the nearest enemy
+    - Press [U] to TP directly behind the nearest allied player
+    - Press [M] (or UI button) to toggle the control menu
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -17,7 +22,7 @@ local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
 
 -- Clean up any existing instances
 for _, v in ipairs(CoreGui:GetChildren()) do
-    if v.Name == "KeybindSettingUI" or v.Name == "PlayerEspContainer" then
+    if v.Name == "KeybindSettingUI" or v.Name == "PvPHUDUI" or v.Name == "PlayerESP" or v.Name == "PlayerEspContainer" then
         v:Destroy()
     end
 end
@@ -25,12 +30,12 @@ end
 -- Default Keybinds Table
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
-    NpcCam = Enum.KeyCode.C,
+    NpcCam = Enum.KeyCode.N,
     SuperJump = Enum.KeyCode.L,
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
-    MenuToggle = Enum.KeyCode.N
+    MenuToggle = Enum.KeyCode.M
 }
 
 -- Save keybinds to file function
@@ -69,12 +74,6 @@ ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
--- Separate container just for ESP drawings
-local EspContainer = Instance.new("ScreenGui")
-EspContainer.Name = "PlayerEspContainer"
-EspContainer.ResetOnSpawn = false
-EspContainer.Parent = CoreGui
-
 -- Open/Close Toggle Button
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 160, 0, 45)
@@ -83,7 +82,7 @@ OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
 OpenButton.TextSize = 15
 OpenButton.Font = Enum.Font.SourceSansBold
-OpenButton.Text = "Toggle Menu [N]"
+OpenButton.Text = "Toggle Menu [M]"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 
@@ -227,11 +226,14 @@ OpenButton.MouseButton1Click:Connect(toggleMenu)
 -- Variables & Logic
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
 local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
+local activeESPs = {}
 
 local function isPlayerAlly(player)
     if player == localPlayer then return true end
     local success, isAlly = pcall(function()
-        return player:GetAttribute("CrewMember") == true or player:GetAttribute("Ally") == true
+        if player:GetAttribute("CrewMember") == true then return true end
+        if player:GetAttribute("Ally") == true then return true end
+        return false
     end)
     if success and isAlly then return true end
     if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
@@ -244,11 +246,13 @@ local function getClosestPlayer()
     local closest, shortest = nil, math.huge
     local char = localPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myRootPos = char.HumanoidRootPart.Position
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and not isPlayerAlly(p) then
             local hum = p.Character:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
-                local dist = (char.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                local dist = (myRootPos - p.Character.HumanoidRootPart.Position).Magnitude
                 if dist < shortest then shortest, closest = dist, p.Character end
             end
         end
@@ -260,11 +264,13 @@ local function getClosestAlly()
     local closest, shortest = nil, math.huge
     local char = localPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myRootPos = char.HumanoidRootPart.Position
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and isPlayerAlly(p) then
             local hum = p.Character:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
-                local dist = (char.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                local dist = (myRootPos - p.Character.HumanoidRootPart.Position).Magnitude
                 if dist < shortest then shortest, closest = dist, p.Character end
             end
         end
@@ -276,11 +282,13 @@ local function getClosestNPC()
     local closest, shortest = nil, math.huge
     local char = localPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myRootPos = char.HumanoidRootPart.Position
+
     for _, obj in ipairs(enemiesFolder:GetChildren()) do
         if obj:IsA("Model") and obj ~= char then
             local hum, root = obj:FindFirstChildOfClass("Humanoid"), obj:FindFirstChild("HumanoidRootPart")
             if hum and root and not Players:GetPlayerFromCharacter(obj) and hum.Health > 0 then
-                local dist = (char.HumanoidRootPart.Position - root.Position).Magnitude
+                local dist = (myRootPos - root.Position).Magnitude
                 if dist < shortest then shortest, closest = dist, obj end
             end
         end
@@ -294,24 +302,97 @@ local function updateStatusText()
     else StatusLabel.Text, StatusLabel.TextColor3 = "Cam: OFF", Color3.fromRGB(255, 50, 50) end
 end
 
--- Helper to accurately extract Blox Fruits Level
-local function getPlayerLevel(player)
-    local lvl = player:GetAttribute("Level")
-    if not lvl and player:FindFirstChild("Data") then
-        local data = player.Data
-        if data:FindFirstChild("Level") then lvl = data.Level.Value end
+-- Team Color Resolver for ESP
+local function getPlayerColor(player)
+    local team = player.Team
+    if team and team.Name:lower():find("marine") then
+        return Color3.fromRGB(0, 150, 255)
     end
-    if not lvl and player:FindFirstChild("leaderstats") then
-        local stats = player.leaderstats
-        if stats:FindFirstChild("Level") then lvl = stats.Level.Value
-        elseif stats:FindFirstChild("Lvl") then lvl = stats.Lvl.Value end
-    end
-    return lvl or "?"
+    return Color3.fromRGB(255, 50, 50)
 end
 
--- Active ESP tracking dictionary
-local activeEspLabels = {}
+-- Clean Billboard ESP Setup (Single ESP per player)
+local function createESP(player)
+    if player == localPlayer then return end
 
+    local function setupCharacter(char)
+        if activeESPs[player] then
+            activeESPs[player].billboard:Destroy()
+            activeESPs[player].conn:Disconnect()
+            activeESPs[player] = nil
+        end
+
+        local head = char:WaitForChild("Head", 5)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if not head or not humanoid then return end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "PlayerESP"
+        billboard.Size = UDim2.new(0, 180, 0, 45)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = head
+        billboard.Parent = CoreGui
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 13
+        textLabel.TextColor3 = getPlayerColor(player)
+        textLabel.TextStrokeTransparency = 0
+        textLabel.TextXAlignment = Enum.TextXAlignment.Center
+        textLabel.TextYAlignment = Enum.TextYAlignment.Center
+        textLabel.Parent = billboard
+
+        local elapsed = 0
+        local connection
+        connection = RunService.Heartbeat:Connect(function(dt)
+            elapsed = elapsed + dt
+            if elapsed < 0.2 then return end
+            elapsed = 0
+
+            if not char or not char.Parent or humanoid.Health <= 0 then
+                billboard:Destroy()
+                connection:Disconnect()
+                activeESPs[player] = nil
+                return
+            end
+
+            local lvl = "N/A"
+            if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") then
+                lvl = player.leaderstats.Level.Value
+            elseif player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
+                lvl = player.Data.Level.Value
+            end
+
+            textLabel.TextColor3 = getPlayerColor(player)
+            textLabel.Text = string.format("%s [Lvl. %s]\nHP: %d/%d", player.Name, tostring(lvl), math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+        end)
+
+        activeESPs[player] = {billboard = billboard, conn = connection}
+    end
+
+    if player.Character then
+        setupCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(setupCharacter)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    createESP(p)
+end
+Players.PlayerAdded:Connect(createESP)
+
+Players.PlayerRemoving:Connect(function(player)
+    if activeESPs[player] then
+        activeESPs[player].billboard:Destroy()
+        activeESPs[player].conn:Disconnect()
+        activeESPs[player] = nil
+    end
+end)
+
+-- Inputs
 UserInputService.InputBegan:Connect(function(input, gp)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
@@ -350,14 +431,15 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Keybinds.SuperJump then
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(char.HumanoidRootPart.AssemblyLinearVelocity.X, 180, char.HumanoidRootPart.AssemblyLinearVelocity.Z)
+            local root = char.HumanoidRootPart
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 180, root.AssemblyLinearVelocity.Z)
         end
     elseif input.KeyCode == Keybinds.LongDash then
         local char = localPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
+            local root = char.HumanoidRootPart
             local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-            -- Long dash multiplier set to 350
-            char.HumanoidRootPart.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
+            root.AssemblyLinearVelocity = look * 350 + Vector3.new(0, 20, 0)
         end
     elseif input.KeyCode == Keybinds.TpEnemy then
         local char = localPlayer.Character
@@ -374,86 +456,27 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
+-- Main Camera Lock Loop
 RunService.RenderStepped:Connect(function(dt)
-    -- Camera Lock Loop
     if (playerCamlockActive or npcCamlockActive) and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
-        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then
-            playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
+        local humanoid = currentTarget:FindFirstChildOfClass("Humanoid")
+        local targetPlayer = Players:GetPlayerFromCharacter(currentTarget)
+        
+        if not humanoid or humanoid.Health <= 0 or (playerCamlockActive and targetPlayer and isPlayerAlly(targetPlayer)) then
+            playerCamlockActive = false
+            npcCamlockActive = false
+            currentTarget = nil
             updateStatusText()
             return
         end
-        local targetCenter = currentTarget.HumanoidRootPart.Position + Vector3.new(0, 0.2, 0)
-        camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetCenter), 1 - math.exp(-35 * dt))
-    end
 
-    -- Track current players for ESP
-    local currentPlayers = {}
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer then
-            currentPlayers[player] = true
-            local char = player.Character
-            local head = char and char:FindFirstChild("Head")
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-            if char and head and hum and hum.Health > 0 then
-                -- Create or grab label
-                local label = activeEspLabels[player]
-                if not label then
-                    label = Instance.new("TextLabel")
-                    label.BackgroundTransparency = 1
-                    label.Font = Enum.Font.SourceSansBold
-                    label.TextSize = 13
-                    label.TextStrokeTransparency = 0.4
-                    label.Size = UDim2.new(0, 200, 0, 45)
-                    label.AnchorPoint = Vector2.new(0.5, 1)
-                    label.Parent = EspContainer
-                    activeEspLabels[player] = label
-                end
-
-                -- Team Color Check (Red for Pirates, Blue for Marines)
-                local teamColor = Color3.fromRGB(255, 60, 60)
-                if player.Team then
-                    local teamName = player.Team.Name:lower()
-                    if teamName:find("marine") then
-                        teamColor = Color3.fromRGB(60, 150, 255)
-                    end
-                end
-
-                -- Position above the head
-                local headPos = head.Position + Vector3.new(0, 3.5, 0)
-                local screenPos, onScreen = camera:WorldToViewportPoint(headPos)
-
-                if onScreen and screenPos.Z > 0 then
-                    label.Visible = true
-                    label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
-                    label.TextColor3 = teamColor
-                    
-                    local lvl = getPlayerLevel(player)
-                    local currentHp = math.floor(hum.Health)
-                    local maxHp = math.floor(hum.MaxHealth)
-                    
-                    -- Username & Level on top, Health status below
-                    label.Text = string.format("%s [Lvl: %s]\nHP: %d / %d", player.Name, tostring(lvl), currentHp, maxHp)
-                else
-                    label.Visible = false
-                end
-            else
-                if activeEspLabels[player] then
-                    activeEspLabels[player].Visible = false
-                end
-            end
-        end
-    end
-
-    -- Cleanup labels for players who left
-    for player, label in pairs(activeEspLabels) do
-        if not currentPlayers[player] then
-            label:Destroy()
-            activeEspLabels[player] = nil
-        end
+        local targetRoot = currentTarget.HumanoidRootPart
+        local currentCamCFrame = camera.CFrame
+        local targetCenter = targetRoot.Position + Vector3.new(0, 0.2, 0)
+        local idealCFrame = CFrame.new(currentCamCFrame.Position, targetCenter)
+        
+        camera.CFrame = currentCamCFrame:Lerp(idealCFrame, 1 - math.exp(-35 * dt))
     end
 end)
 
-print("[Keybind Settings]: Long Dash Set to 350 & Loaded Successfully!")
+print("[Keybind Settings]: Single Clean ESP Loaded Successfully!")
