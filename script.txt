@@ -2,7 +2,7 @@
     Keybind Settings + Fast Attack & Manual Admin Kick Panel (Restricted to kjdaking918)
     - Press [P] to toggle Player Camlock
     - Press [N] to toggle NPC Camlock / Menu Toggle
-    - Admin Menu automatically appears at the bottom of the main frame if authorized.
+    - Admin Menu appears at the bottom of the main frame if authorized.
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -239,8 +239,8 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Expand Main Frame size if user is admin
-local frameHeight = isAdmin and 580 or 440
+-- Expand Main Frame size securely to accommodate admin section
+local frameHeight = isAdmin and 590 or 440
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
@@ -401,8 +401,8 @@ end)
 -- ADMIN PANEL SECTION (Visible exclusively to kjdaking918)
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
-    AdminHeader.Size = UDim2.new(1, -20, 0, 24)
-    AdminHeader.Position = UDim2.new(0, 10, 0, 425)
+    AdminHeader.Size = UDim2.new(1, -20, 0, 22)
+    AdminHeader.Position = UDim2.new(0, 10, 0, 427)
     AdminHeader.BackgroundTransparency = 1
     AdminHeader.Font = Enum.Font.SourceSansBold
     AdminHeader.TextSize = 13
@@ -412,7 +412,7 @@ if isAdmin then
     AdminHeader.Parent = MainFrame
 
     local UserScroll = Instance.new("ScrollingFrame")
-    UserScroll.Size = UDim2.new(1, -20, 0, 90)
+    UserScroll.Size = UDim2.new(1, -20, 0, 110)
     UserScroll.Position = UDim2.new(0, 10, 0, 452)
     UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     UserScroll.BorderSizePixel = 0
@@ -429,7 +429,7 @@ if isAdmin then
     UIList.Padding = UDim.new(0, 4)
     UIList.Parent = UserScroll
 
-    -- Loop to update and list users currently running the script
+    -- Dynamic thread checking for script users and building manual kick options
     task.spawn(function()
         while true do
             for _, child in ipairs(UserScroll:GetChildren()) do
@@ -468,7 +468,6 @@ if isAdmin then
                         nameLabel.Text = p.Name
                         nameLabel.Parent = row
 
-                        -- Manual Kick Button for each user
                         local kickBtn = Instance.new("TextButton")
                         kickBtn.Size = UDim2.new(0, 75, 0, 20)
                         kickBtn.Position = UDim2.new(1, -80, 0.5, -10)
@@ -531,7 +530,6 @@ OpenButton.MouseButton1Click:Connect(toggleMenu)
 -- Setup logic for tracking targets & camera locks
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
 local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
-local activeESPs = {}
 
 local function isPlayerAlly(player)
     if player == localPlayer then return true end
