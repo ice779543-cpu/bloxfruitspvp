@@ -1,12 +1,12 @@
 --[[
-    Keybind Settings (Single Billboard ESP + Long Dash 350)
+    Keybind Settings + Fast Attack & No Stun Toggles (Menu Only)
     - Press [P] to toggle Player Camlock (Strictly Ignores Allies)
-    - Press [N] to toggle NPC Camlock
+    - Press [N] to toggle NPC Camlock / Menu Toggle
     - Press [L] for a Single Super High Jump
     - Press [H] for a Single Boosted Long Dash (350 speed)
     - Press [T] to TP directly behind the nearest enemy
     - Press [U] to TP directly behind the nearest allied player
-    - Press [M] (or UI button) to toggle the control menu
+    - Fast Attack & No Stun: Controlled via menu interface only
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -15,6 +15,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -27,7 +28,7 @@ for _, v in ipairs(CoreGui:GetChildren()) do
     end
 end
 
--- Default Keybinds Table
+-- Default Keybinds Table (No keybinds assigned for Fast Attack or No Stun)
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -35,8 +36,160 @@ local Keybinds = {
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
-    MenuToggle = Enum.KeyCode.M
+    MenuToggle = Enum.KeyCode.N
 }
+
+-- Settings States
+local FastAttackSettings = {
+    AutoClick = false,
+    ClickDelay = 0
+}
+
+local NoStunSettings = {
+    Enabled = false
+}
+
+local FastAttack = {
+    Distance = 100,
+    attackMobs = true,
+    attackPlayers = true
+}
+
+-- Safe Module Loader for Fast Attack Remotes
+local function SafeWaitForChild(parent, childName)
+    local success, result = pcall(function()
+        return parent:WaitForChild(childName)
+    end)
+    return result
+end
+
+local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+local Net = Modules and SafeWaitForChild(Modules, "Net")
+local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
+local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
+
+local function IsAlive(character)
+    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+end
+
+local function ProcessEnemies(OthersEnemies, Folder)
+    local BasePart = nil
+    for _, Enemy in ipairs(Folder:GetChildren()) do
+        local Head = Enemy:FindFirstChild("Head")
+        if Head and IsAlive(Enemy) and localPlayer:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
+            if Enemy ~= localPlayer.Character then
+                table.insert(OthersEnemies, { Enemy, Head })
+                BasePart = Head
+            end
+        end
+    end
+    return BasePart
+end
+
+function FastAttack:Attack(BasePart, OthersEnemies)
+    if not BasePart or #OthersEnemies == 0 or not RegisterAttack or not RegisterHit then return end
+    pcall(function()
+        RegisterAttack:FireServer(FastAttackSettings.ClickDelay or 0)
+        RegisterHit:FireServer(BasePart, OthersEnemies)
+    end)
+end
+
+function FastAttack:AttackNearest()
+    local OthersEnemies = {}
+    local EnemiesFolder = Workspace:FindFirstChild("Enemies")
+    local CharactersFolder = Workspace:FindFirstChild("Characters")
+    local Part1 = nil
+    local Part2 = nil
+    if EnemiesFolder then Part1 = ProcessEnemies(OthersEnemies, EnemiesFolder) end
+    if CharactersFolder then Part2 = ProcessEnemies(OthersEnemies, CharactersFolder) end
+    local character = localPlayer.Character
+    if not character then return end
+    local equippedWeapon = character:FindFirstChildOfClass("Tool")
+    if equippedWeapon and equippedWeapon:FindFirstChild("LeftClickRemote") then
+        for _, enemyData in ipairs(OthersEnemies) do
+            local enemy = enemyData[1]
+            if enemy and enemy:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+                local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
+                pcall(function()
+                    equippedWeapon.LeftClickRemote:FireServer(direction, 1)
+                end)
+            end
+        end
+    elseif #OthersEnemies > 0 then
+        self:Attack(Part1 or Part2, OthersEnemies)
+    end
+end
+
+function FastAttack:BladeHits()
+    local Equipped = IsAlive(localPlayer.Character) and localPlayer.Character:FindFirstChildOfClass("Tool")
+    if Equipped and Equipped.ToolTip ~= "Gun" then
+        self:AttackNearest()
+    end
+end
+
+-- Fast Attack Loop Thread
+task.spawn(function()
+    while true do
+        if FastAttackSettings.AutoClick then
+            FastAttack:BladeHits()
+        end
+        task.wait(FastAttackSettings.ClickDelay)
+    end
+end)
+
+-- No Stun Logic Implementation
+local function setupCharacterNoStun(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Sit = false
+    
+    local connections = {}
+    
+    local function handleBadState(newState)
+        if not NoStunSettings.Enabled then return false end
+        if newState == Enum.HumanoidStateType.Ragdoll or 
+           newState == Enum.HumanoidStateType.FallingDown or 
+           newState == Enum.HumanoidStateType.PlatformStanding or
+           newState == Enum.HumanoidStateType.Seated then
+            humanoid.Sit = false
+            humanoid.PlatformStand = false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            if character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.Anchored = false
+            end
+            return true
+        end
+        return false
+    end
+    
+    handleBadState(humanoid:GetState())
+    
+    table.insert(connections, humanoid.StateChanged:Connect(function(_, newState)
+        handleBadState(newState)
+    end))
+    
+    for _, seat in pairs(Workspace:GetDescendants()) do
+        if seat:IsA("Seat") then
+            table.insert(connections, seat:GetPropertyChangedSignal("Occupant"):Connect(function()
+                if NoStunSettings.Enabled and seat.Occupant == humanoid then
+                    task.wait(0.01)
+                    humanoid.Sit = false
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end))
+        end
+    end
+    
+    table.insert(connections, humanoid.Died:Connect(function()
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+    end))
+end
+
+if localPlayer.Character then
+    setupCharacterNoStun(localPlayer.Character)
+end
+localPlayer.CharacterAdded:Connect(setupCharacterNoStun)
 
 -- Save keybinds to file function
 local function saveKeybinds()
@@ -82,7 +235,7 @@ OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
 OpenButton.TextSize = 15
 OpenButton.Font = Enum.Font.SourceSansBold
-OpenButton.Text = "Toggle Menu [M]"
+OpenButton.Text = "Toggle Menu [N]"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 
@@ -92,8 +245,8 @@ BtnCorner.Parent = OpenButton
 
 -- Main Window Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -180)
+MainFrame.Size = UDim2.new(0, 320, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -220)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -129,7 +282,7 @@ StatusLabel.TextSize, StatusLabel.TextColor3 = 13, Color3.fromRGB(255, 50, 50)
 StatusLabel.Text = "Cam: OFF"
 StatusLabel.Parent = MainFrame
 
--- Helper to create rows
+-- Helper to create rows (Keybinds)
 local function createFlatRow(name, keyName, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -20, 0, 32)
@@ -170,12 +323,56 @@ local function createFlatRow(name, keyName, yPos)
     return Button
 end
 
+-- Helper to create toggle-only rows (No Keybind)
+local function createToggleRow(name, initialState, yPos)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -20, 0, 32)
+    Row.Position = UDim2.new(0, 10, 0, yPos)
+    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.Parent = MainFrame
+
+    local RC = Instance.new("UICorner")
+    RC.CornerRadius = UDim.new(0, 6)
+    RC.Parent = Row
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.6, 0, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 13
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = name
+    Label.Parent = Row
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 80, 0, 24)
+    Button.Position = UDim2.new(1, -90, 0.5, -12)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    Button.Font = Enum.Font.SourceSansBold
+    Button.TextSize = 12
+    Button.Text = initialState and "ON" or "OFF"
+    Button.TextColor3 = initialState and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    Button.Active = true
+    Button.Parent = Row
+
+    local BC = Instance.new("UICorner")
+    BC.CornerRadius = UDim.new(0, 4)
+    BC.Parent = Button
+
+    return Button
+end
+
 local btnPlayerCam = createFlatRow("Player Camlock", "PlayerCam", 70)
 local btnNpcCam = createFlatRow("NPC Camlock", "NpcCam", 108)
 local btnSuperJump = createFlatRow("Super High Jump", "SuperJump", 146)
 local btnLongDash = createFlatRow("Boosted Long Dash", "LongDash", 184)
 local btnTpEnemy = createFlatRow("TP Behind Enemy", "TpEnemy", 222)
 local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
+
+local btnFastAttack = createToggleRow("Fast Attack", FastAttackSettings.AutoClick, 298)
+local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
 
 local buttonMap = {
     PlayerCam = btnPlayerCam,
@@ -189,7 +386,7 @@ local buttonMap = {
 -- Manual Save Button inside the UI
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
-SaveButton.Position = UDim2.new(0, 10, 0, 305)
+SaveButton.Position = UDim2.new(0, 10, 0, 385)
 SaveButton.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
 SaveButton.Font = Enum.Font.SourceSansBold
 SaveButton.TextSize = 13
@@ -207,6 +404,20 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Saved Successfully!"
     task.wait(1.5)
     SaveButton.Text = "Save Settings"
+end)
+
+-- Fast Attack button click action
+btnFastAttack.MouseButton1Click:Connect(function()
+    FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
+    btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
+    btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+-- No Stun button click action
+btnNoStun.MouseButton1Click:Connect(function()
+    NoStunSettings.Enabled = not NoStunSettings.Enabled
+    btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
+    btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 local listeningKey = nil
@@ -311,7 +522,7 @@ local function getPlayerColor(player)
     return Color3.fromRGB(255, 50, 50)
 end
 
--- Clean Billboard ESP Setup (Single ESP per player)
+-- Clean Billboard ESP Setup
 local function createESP(player)
     if player == localPlayer then return end
 
@@ -479,4 +690,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("[Keybind Settings]: Single Clean ESP Loaded Successfully!")
+print("[Keybind Settings]: Fast Attack & No Stun converted to menu-only toggles!")
