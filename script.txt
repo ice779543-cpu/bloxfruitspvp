@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Billboard Player ESP
+    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float (Zero-Fall), & Billboard Player ESP
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -161,7 +161,9 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Hardcore Anti-Stun & Air-Float Loop
+-- Absolute Air-Float & Anti-Stun Loop (Zero-Fall Fix Integrated)
+local floatVelocity = nil
+
 RunService.Stepped:Connect(function()
     if not NoStunSettings.Enabled then return end
     local char = localPlayer.Character
@@ -190,13 +192,27 @@ RunService.Stepped:Connect(function()
     
     if rootPart then
         if rootPart.Anchored then rootPart.Anchored = false end
+        
+        -- If holding move in midair, inject a persistent antigravity constraint
         if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
-            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            if not floatVelocity or floatVelocity.Parent ~= rootPart then
+                if floatVelocity then floatVelocity:Destroy() end
+                floatVelocity = Instance.new("BodyVelocity")
+                floatVelocity.Name = "AirFloatConstraint"
+                floatVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Lock only the Y axis
+                floatVelocity.Velocity = Vector3.new(0, 0, 0)
+                floatVelocity.Parent = rootPart
+            end
+        else
+            if floatVelocity then
+                floatVelocity:Destroy()
+                floatVelocity = nil
+            end
         end
     end
     
     for _, child in ipairs(char:GetDescendants()) do
-        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity")) and child.Name ~= "LongDashVelocity" then
+        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity")) and child.Name ~= "LongDashVelocity" and child.Name ~= "AirFloatConstraint" then
             pcall(function() child:Destroy() end)
         end
     end
