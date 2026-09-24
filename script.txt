@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Admin Panel, Air-Float, & Fixed Movement Velocity No Stun
+    Keybind Settings + Fast Attack, Air-Float, Fixed Movement Velocity No Stun, Keybindable No Stun, & Hide/Unhide UI [B]
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -13,11 +13,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
-
--- Admin Verification: Set to true so the admin panel displays
-local isAdmin = true 
-
-print("[Admin Menu Debug] Admin status loaded as: " .. tostring(isAdmin) .. " for user: " .. localPlayer.Name)
 
 -- Clean up any existing instances safely
 for _, v in ipairs(CoreGui:GetChildren()) do
@@ -33,7 +28,7 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Default Keybinds Table
+-- Default Keybinds Table (Added NoStun = Enum.KeyCode.J as default, and MenuHide = B)
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -41,7 +36,9 @@ local Keybinds = {
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
-    MenuToggle = Enum.KeyCode.N
+    NoStunKey = Enum.KeyCode.J,
+    MenuToggle = Enum.KeyCode.N,
+    MenuHide = Enum.KeyCode.B
 }
 
 -- Settings States
@@ -51,7 +48,7 @@ local FastAttackSettings = {
 }
 
 local NoStunSettings = {
-    Enabled = true -- Defaulted to true using this version's form/logic
+    Enabled = false
 }
 
 local FastAttack = {
@@ -161,7 +158,7 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Absolute Air-Float & Skill-Compatible Anti-Stun Loop
+-- Absolute Air-Float & Skill-Compatible Anti-Stun Loop (Fully Reversible when toggled OFF)
 local floatAttachment = nil
 local floatLinearVelocity = nil
 local antiFallGyro = nil
@@ -169,15 +166,24 @@ local antiFallGyro = nil
 RunService.Stepped:Connect(function()
     local char = localPlayer.Character
     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     
     if not NoStunSettings.Enabled then
         if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
         if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
         if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
+        
+        -- Re-enable vanilla humanoid states when No Stun is turned OFF
+        if humanoid then
+            pcall(function()
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            end)
+        end
         return
     end
-
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
     
     if humanoid then
         pcall(function()
@@ -384,7 +390,7 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- GUI Setup
+-- GUI Setup (Increased frame height slightly to fit the new No Stun keybind row)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -405,7 +411,7 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
-local frameHeight = isAdmin and 590 or 440
+local frameHeight = 480
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
@@ -426,7 +432,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 16
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = isAdmin and "Keybind Settings [ADMIN]" or "Keybind Settings"
+TitleLabel.Text = "Keybind Settings"
 TitleLabel.Parent = MainFrame
 
 local TitleCorner = Instance.new("UICorner")
@@ -531,6 +537,7 @@ local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
 local btnFastAttack = createToggleRow("Fast Attack", FastAttackSettings.AutoClick, 298)
 local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
+local btnNoStunKey = createFlatRow("No Stun Keybind", "NoStunKey", 374)
 
 local buttonMap = {
     PlayerCam = btnPlayerCam,
@@ -538,12 +545,13 @@ local buttonMap = {
     SuperJump = btnBigJump,
     LongDash = btnLongDashOnly,
     TpEnemy = btnTpEnemy,
-    TpAlly = btnTpAlly
+    TpAlly = btnTpAlly,
+    NoStunKey = btnNoStunKey
 }
 
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
-SaveButton.Position = UDim2.new(0, 10, 0, 380)
+SaveButton.Position = UDim2.new(0, 10, 0, 420)
 SaveButton.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
 SaveButton.Font = Enum.Font.SourceSansBold
 SaveButton.TextSize = 13
@@ -563,118 +571,19 @@ SaveButton.MouseButton1Click:Connect(function()
     SaveButton.Text = "Save Settings"
 end)
 
-if isAdmin then
-    local AdminHeader = Instance.new("TextLabel")
-    AdminHeader.Size = UDim2.new(1, -20, 0, 22)
-    AdminHeader.Position = UDim2.new(0, 10, 0, 420)
-    AdminHeader.BackgroundTransparency = 1
-    AdminHeader.Font = Enum.Font.SourceSansBold
-    AdminHeader.TextSize = 13
-    AdminHeader.TextColor3 = Color3.fromRGB(255, 170, 0)
-    AdminHeader.TextXAlignment = Enum.TextXAlignment.Left
-    AdminHeader.Text = "Script Users in Server:"
-    AdminHeader.Parent = MainFrame
-
-    local UserScroll = Instance.new("ScrollingFrame")
-    UserScroll.Size = UDim2.new(1, -20, 0, 110)
-    UserScroll.Position = UDim2.new(0, 10, 0, 445)
-    UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-    UserScroll.BorderSizePixel = 0
-    UserScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    UserScroll.ScrollBarThickness = 4
-    UserScroll.Parent = MainFrame
-
-    local USCorner = Instance.new("UICorner")
-    USCorner.CornerRadius = UDim.new(0, 6)
-    USCorner.Parent = UserScroll
-
-    local UIList = Instance.new("UIListLayout")
-    UIList.SortOrder = Enum.SortOrder.LayoutOrder
-    UIList.Padding = UDim.new(0, 4)
-    UIList.Parent = UserScroll
-
-    task.spawn(function()
-        while true do
-            for _, child in ipairs(UserScroll:GetChildren()) do
-                if child:IsA("Frame") then child:Destroy() end
-            end
-
-            local activeUsersCount = 0
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= localPlayer then
-                    local foundScriptUI = false
-                    local pGui = p:FindFirstChild("PlayerGui")
-                    if pGui and pGui:FindFirstChild("KeybindSettingUI") then
-                        foundScriptUI = true
-                    end
-
-                    if foundScriptUI then
-                        activeUsersCount = activeUsersCount + 1
-                        
-                        local row = Instance.new("Frame")
-                        row.Size = UDim2.new(1, 0, 0, 26)
-                        row.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-                        row.Parent = UserScroll
-
-                        local rc = Instance.new("UICorner")
-                        rc.CornerRadius = UDim.new(0, 4)
-                        rc.Parent = row
-
-                        local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Size = UDim2.new(0.65, 0, 1, 0)
-                        nameLabel.Position = UDim2.new(0, 8, 0, 0)
-                        nameLabel.BackgroundTransparency = 1
-                        nameLabel.Font = Enum.Font.SourceSansBold
-                        nameLabel.TextSize = 12
-                        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                        nameLabel.Text = p.Name
-                        nameLabel.Parent = row
-
-                        local kickBtn = Instance.new("TextButton")
-                        kickBtn.Size = UDim2.new(0, 75, 0, 20)
-                        kickBtn.Position = UDim2.new(1, -80, 0.5, -10)
-                        kickBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-                        kickBtn.Font = Enum.Font.SourceSansBold
-                        kickBtn.TextSize = 11
-                        kickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        kickBtn.Text = "Kick User"
-                        kickBtn.Parent = row
-
-                        local kc = Instance.new("UICorner")
-                        kc.CornerRadius = UDim.new(0, 4)
-                        kc.Parent = kickBtn
-
-                        local targetPlayer = p
-                        kickBtn.MouseButton1Click:Connect(function()
-                            pcall(function()
-                                if targetPlayer.Character then
-                                    targetPlayer.Character:BreakJoints()
-                                end
-                                targetPlayer:Kick("Session terminated manually by Admin.")
-                            end)
-                        end)
-                    end
-                end
-            end
-
-            UserScroll.CanvasSize = UDim2.new(0, 0, 0, activeUsersCount * 30)
-            task.wait(2)
-        end
-    end)
-end
-
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
-btnNoStun.MouseButton1Click:Connect(function()
+local function toggleNoStunState()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-end)
+end
+
+btnNoStun.MouseButton1Click:Connect(toggleNoStunState)
 
 local listeningKey = nil
 for keyName, btn in pairs(buttonMap) do
@@ -772,6 +681,19 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 
     if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
+    
+    -- Hide / Unhide complete UI with Keybind B
+    if input.KeyCode == Keybinds.MenuHide then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+        return
+    end
+
+    -- Toggle No Stun via its assigned keybind
+    if input.KeyCode == Keybinds.NoStunKey then
+        toggleNoStunState()
+        return
+    end
+
     if gp then return end
 
     if input.KeyCode == Keybinds.PlayerCam then
