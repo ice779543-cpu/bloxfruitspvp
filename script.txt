@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits (ESP Always Active, Fixed Universal Fast Attack & Smooth Flight Raid Fix)
+    Blox Fruits (ESP Always Active, Fully Patched Fast Attack & Smooth Flight Raid Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -44,23 +44,42 @@ local Keybinds = {
     MenuHide = Enum.KeyCode.B
 }
 
--- Settings States (Throttled ClickDelay set safely to 0.12 to prevent raid lockouts)
+-- Settings States
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.12, Distance = 65 }
 local NoStunSettings = { Enabled = false }
 local PvPStates = { AutoV3 = false }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
--- Safe Module Loader for Attacks & Remotes
-local function SafeWaitForChild(parent, childName)
-    local success, result = pcall(function() return parent:WaitForChild(childName, 5) end)
-    return result
+-- Dynamic and Safe Remote Finder (Prevents nil errors if Blox Fruits updates paths)
+local function getRegisterAttack()
+    local success, res = pcall(function()
+        return ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
+    end)
+    if success and res then return res end
+    
+    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+        if v.Name == "RegisterAttack" or v.Name == "RE/RegisterAttack" then
+            return v
+        end
+    end
+    return nil
 end
-local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
-local Net = Modules and SafeWaitForChild(Modules, "Net")
-local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
-local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
--- Fully Safed Universal Fast Attack Function (Prevents nil call errors)
+local function getRegisterHit()
+    local success, res = pcall(function()
+        return ReplicatedStorage.Modules.Net["RE/RegisterHit"]
+    end)
+    if success and res then return res end
+    
+    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+        if v.Name == "RegisterHit" or v.Name == "RE/RegisterHit" then
+            return v
+        end
+    end
+    return nil
+end
+
+-- Fully Safed Universal Fast Attack Function
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
@@ -80,11 +99,14 @@ local function executeAttack(targetRoot, targetHead)
     end
     
     pcall(function()
-        if RegisterAttack and typeof(RegisterAttack.FireServer) == "function" then
-            RegisterAttack:FireServer(0)
+        local regAttack = getRegisterAttack()
+        if regAttack and typeof(regAttack.FireServer) == "function" then
+            regAttack:FireServer(0)
         end
-        if RegisterHit and typeof(RegisterHit.FireServer) == "function" and targetHead then
-            RegisterHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
+        
+        local regHit = getRegisterHit()
+        if regHit and typeof(regHit.FireServer) == "function" and targetHead then
+            regHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
         end
     end)
 end
@@ -147,7 +169,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "  Blox Fruits"
+TitleLabel.Text = "  Blox Fruits Hub"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 
@@ -491,7 +513,7 @@ task.spawn(function()
     end
 end)
 
--- Raid Automation Script (Smooth Flight & Strict Raid-Only Targeting)
+-- Raid Automation Script
 local currentTween = nil
 local function stopTween()
     if currentTween then
