@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Fixed UI & Verified ESP Toggle)
+    Blox Fruits Hub - Full Restoration Script
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -15,7 +15,7 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- COMPLETE OLD UI NUKE
+-- Clean up any existing instances first
 local function nukeEverythingOld()
     local namesToDestroy = {
         "KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", 
@@ -318,7 +318,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
--- POPULATE PvP TAB (ESP Toggle explicitly placed right under No Stun)
+-- POPULATE PvP TAB
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnESP = createToggleRow(TabPvP, "ESP Toggle", ESPStates.Enabled, 85)
