@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Advanced Fast Attack Modes (Ignored for Portal Users), Admin Panel, & Custom No Stun with Keybind
+    Keybind Settings + Advanced Fast Attack Modes (Ignored for Portal Users), Admin Panel, & Custom Lightweight No Stun
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -32,7 +32,7 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Default Keybinds Table (Includes HideToggle = B and NoStun = K)
+-- Default Keybinds Table (Includes HideToggle = B and NoStunKey = K)
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -246,63 +246,25 @@ local function StartAttacksWithMode(mode)
     end)
 end
 
--- Integrated Custom No Stun System (vincentplayz9356)
-local function setupCharacter(character)
+-- Integrated Custom PreventStun System
+local function PreventStun()
     if not NoStunSettings.Enabled then return end
     
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if not humanoid then return end
-    
-    humanoid.Sit = false
-    
-    local connections = {}
-    
-    local function handleBadState(newState)
-        if not NoStunSettings.Enabled then return false end
-        if newState == Enum.HumanoidStateType.Ragdoll or 
-           newState == Enum.HumanoidStateType.FallingDown or 
-           newState == Enum.HumanoidStateType.PlatformStanding or
-           newState == Enum.HumanoidStateType.Seated then
-            humanoid.Sit = false
-            humanoid.PlatformStand = false
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            if character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.Anchored = false
+    local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    local Humanoid = Character:FindFirstChild("Humanoid")
+    if Humanoid then
+        Humanoid.StateChanged:Connect(function(_, newState)
+            if NoStunSettings.Enabled and (newState == Enum.HumanoidStateType.FallingDown or newState == Enum.HumanoidStateType.Ragdoll) then
+                Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
             end
-            return true
-        end
-        return false
+        end)
     end
-    
-    handleBadState(humanoid:GetState())
-    
-    table.insert(connections, humanoid.StateChanged:Connect(function(_, newState)
-        handleBadState(newState)
-    end))
-    
-    for _, seat in pairs(Workspace:GetDescendants()) do
-        if seat:IsA("Seat") then
-            table.insert(connections, seat:GetPropertyChangedSignal("Occupant"):Connect(function()
-                if NoStunSettings.Enabled and seat.Occupant == humanoid then
-                    task.wait(0.01)
-                    humanoid.Sit = false
-                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                end
-            end))
-        end
-    end
-    
-    table.insert(connections, humanoid.Died:Connect(function()
-        for _, conn in ipairs(connections) do
-            conn:Disconnect()
-        end
-    end))
 end
 
+localPlayer.CharacterAdded:Connect(PreventStun)
 if localPlayer.Character then
-    setupCharacter(localPlayer.Character)
+    PreventStun()
 end
-localPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Save / Load Functions
 local function saveKeybinds()
@@ -740,8 +702,8 @@ local function toggleNoStun()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    if NoStunSettings.Enabled and localPlayer.Character then
-        setupCharacter(localPlayer.Character)
+    if NoStunSettings.Enabled then
+        PreventStun()
     end
 end
 
