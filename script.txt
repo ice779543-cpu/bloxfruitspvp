@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (All Features + Camlock Keybinds + ESP Toggle Switch)
+    Blox Fruits Hub (Aggressive Old UI Eraser + ESP Toggle + Camlock Keybind Options)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -15,29 +15,37 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- FORCE-NUKE CLEANUP
-local function nukeOldUIs()
-    local targetNames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", "StandalonePlayerESP", "AlwaysActivePlayerESP"}
-    for _, v in ipairs(CoreGui:GetChildren()) do
-        for _, name in ipairs(targetNames) do
-            if v.Name == name or v.Name:find("BloxFruit") then
-                pcall(function() v:Destroy() end)
+-- ULTRA AGGRESSIVE OLD UI REMOVER
+local function nukeEverythingOld()
+    local namesToDestroy = {
+        "KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", 
+        "StandalonePlayerESP", "AlwaysActivePlayerESP", "BloxFruitHub"
+    }
+    
+    -- Clean CoreGui
+    for _, obj in ipairs(CoreGui:GetChildren()) do
+        for _, targetName in ipairs(namesToDestroy) do
+            if obj.Name == targetName or obj.Name:find("BloxFruit") or obj.Name:find("Keybind") then
+                pcall(function() obj:Destroy() end)
             end
         end
     end
-    if localPlayer:FindFirstChild("PlayerGui") then
-        for _, v in ipairs(localPlayer.PlayerGui:GetChildren()) do
-            for _, name in ipairs(targetNames) do
-                if v.Name == name or v.Name:find("BloxFruit") then
-                    pcall(function() v:Destroy() end)
+    
+    -- Clean PlayerGui
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        for _, obj in ipairs(playerGui:GetChildren()) do
+            for _, targetName in ipairs(namesToDestroy) do
+                if obj.Name == targetName or obj.Name:find("BloxFruit") or obj.Name:find("Keybind") then
+                    pcall(function() obj:Destroy() end)
                 end
             end
         end
     end
 end
 
-nukeOldUIs()
-task.wait(0.1)
+nukeEverythingOld()
+task.wait(0.2)
 
 -- Default Keybinds Table
 local Keybinds = {
@@ -55,7 +63,7 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.12, Distance = 65 }
 local NoStunSettings = { Enabled = false }
-local ESPStates = { Enabled = true } -- ESP Toggle State (Default ON)
+local ESPStates = { Enabled = true }
 local PvPStates = { AutoV3 = false, PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
@@ -318,7 +326,6 @@ local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnESP = createToggleRow(TabPvP, "ESP Toggle", ESPStates.Enabled, 85)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 125)
 
--- CAMLOCK KEYBIND SETTERS & OTHERS
 createKeybindRow(TabPvP, "Player Camlock Key", "PlayerCam", 165)
 createKeybindRow(TabPvP, "NPC Camlock Key", "NpcCam", 205)
 createKeybindRow(TabPvP, "Super Jump", "SuperJump", 245)
@@ -420,7 +427,6 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
--- Function to find closest available Target for Camlock
 local function getClosestTarget(isNpc)
     local myChar = localPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -463,7 +469,6 @@ local function getClosestTarget(isNpc)
 end
 
 RunService.RenderStepped:Connect(function()
-    -- Render ESP Updates (Only if ESP is enabled)
     if ESPStates.Enabled then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= localPlayer then
@@ -517,7 +522,6 @@ RunService.RenderStepped:Connect(function()
         for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
     end
     
-    -- Camlock Tracking Execution
     if PvPStates.PlayerCamActive then
         if not PvPStates.LockedTarget or not PvPStates.LockedTarget.Parent or PvPStates.LockedTarget.Parent:FindFirstChild("Humanoid").Health <= 0 then
             PvPStates.LockedTarget = getClosestTarget(false)
