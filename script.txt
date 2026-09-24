@@ -40,7 +40,8 @@ local Keybinds = {
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
-    MenuToggle = Enum.KeyCode.N
+    MenuToggle = Enum.KeyCode.N,
+    HideToggle = Enum.KeyCode.B
 }
 
 -- Settings States & _G Integration
@@ -820,6 +821,11 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 
     if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
+    if input.KeyCode == Keybinds.HideToggle then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+        return
+    end
+    
     if gp then return end
 
     if input.KeyCode == Keybinds.PlayerCam then
