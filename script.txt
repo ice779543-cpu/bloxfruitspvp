@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Fixed Direct Player & NPC Camlock Keybinds)
+    Blox Fruits Hub (All Features Combined + Dedicated Camlock Keybind Options)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -316,8 +316,11 @@ local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
 
-createKeybindRow(TabPvP, "Player Camlock", "PlayerCam", 125)
-createKeybindRow(TabPvP, "NPC Camlock", "NpcCam", 165)
+-- CAMLOCK KEYBIND SETTERS AT THE TOP
+createKeybindRow(TabPvP, "Player Camlock Key", "PlayerCam", 125)
+createKeybindRow(TabPvP, "NPC Camlock Key", "NpcCam", 165)
+
+-- OTHER HOTKEYS
 createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
 createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
 createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
