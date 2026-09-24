@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Player & NPC Camlock Keybinds Added)
+    Blox Fruits Hub (Fixed Direct Player & NPC Camlock Keybinds)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -39,7 +39,7 @@ end
 nukeOldUIs()
 task.wait(0.1)
 
--- Default Keybinds Table (PlayerCam & NpcCam included)
+-- Default Keybinds Table
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -316,7 +316,6 @@ local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
 
--- KEYBIND ROWS FOR CAMLOCKS
 createKeybindRow(TabPvP, "Player Camlock", "PlayerCam", 125)
 createKeybindRow(TabPvP, "NPC Camlock", "NpcCam", 165)
 createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
@@ -583,6 +582,7 @@ task.spawn(function()
     end
 end)
 
+-- KEYBIND INPUT LISTENER
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local char = localPlayer.Character
