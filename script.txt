@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub - Full Restoration Script
+    Blox Fruits Hub (Fixed Teleport Behind Enemy + Full Feature Set)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -105,6 +105,55 @@ local function executeAttack(targetRoot, targetHead)
             regHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
         end
     end)
+end
+
+-- Teleport Behind Enemy Logic
+local function teleportBehindEnemy()
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local closestRoot = nil
+    local shortestDist = math.huge
+
+    -- Scan players first
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer and plr.Character then
+            local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            local enemyHum = plr.Character:FindFirstChild("Humanoid")
+            if enemyRoot and enemyHum and enemyHum.Health > 0 then
+                local dist = (enemyRoot.Position - root.Position).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closestRoot = enemyRoot
+                end
+            end
+        end
+    end
+
+    -- If no player nearby, scan NPCs
+    if not closestRoot then
+        local enemiesFolder = Workspace:FindFirstChild("Enemies")
+        if enemiesFolder then
+            for _, mob in ipairs(enemiesFolder:GetChildren()) do
+                local enemyRoot = mob:FindFirstChild("HumanoidRootPart")
+                local enemyHum = mob:FindFirstChild("Humanoid")
+                if enemyRoot and enemyHum and enemyHum.Health > 0 then
+                    local dist = (enemyRoot.Position - root.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestRoot = enemyRoot
+                    end
+                end
+            end
+        end
+    end
+
+    if closestRoot then
+        -- Teleport 4 studs behind the enemy, facing them
+        local behindCFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
+        root.CFrame = CFrame.new(behindCFrame.Position, closestRoot.Position)
+    end
 end
 
 local function saveKeybinds()
@@ -625,6 +674,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
         NoStunSettings.Enabled = not NoStunSettings.Enabled
         btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
         btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    elseif input.KeyCode == Keybinds.TpEnemy then
+        teleportBehindEnemy()
     elseif input.KeyCode == Keybinds.SuperJump and root then
         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
     elseif input.KeyCode == Keybinds.LongDash and root then
