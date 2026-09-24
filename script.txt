@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Aggressive Old UI Eraser + ESP Toggle + Camlock Keybind Options)
+    Blox Fruits Hub (Fixed UI & Verified ESP Toggle)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -15,14 +15,13 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- ULTRA AGGRESSIVE OLD UI REMOVER
+-- COMPLETE OLD UI NUKE
 local function nukeEverythingOld()
     local namesToDestroy = {
         "KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", 
         "StandalonePlayerESP", "AlwaysActivePlayerESP", "BloxFruitHub"
     }
     
-    -- Clean CoreGui
     for _, obj in ipairs(CoreGui:GetChildren()) do
         for _, targetName in ipairs(namesToDestroy) do
             if obj.Name == targetName or obj.Name:find("BloxFruit") or obj.Name:find("Keybind") then
@@ -31,7 +30,6 @@ local function nukeEverythingOld()
         end
     end
     
-    -- Clean PlayerGui
     local playerGui = localPlayer:FindFirstChild("PlayerGui")
     if playerGui then
         for _, obj in ipairs(playerGui:GetChildren()) do
@@ -320,7 +318,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
--- POPULATE PvP TAB
+-- POPULATE PvP TAB (ESP Toggle explicitly placed right under No Stun)
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnESP = createToggleRow(TabPvP, "ESP Toggle", ESPStates.Enabled, 85)
