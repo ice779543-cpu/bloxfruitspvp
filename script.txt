@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Advanced Fast Attack Modes (Ignored for Portal Users), Admin Panel, & Fixed Robust No Stun & ESP
+    Keybind Settings + Advanced Fast Attack Modes (Ignored for Portal Users), Admin Panel, & Custom No Stun with Keybind
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -32,7 +32,7 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Default Keybinds Table
+-- Default Keybinds Table (Includes HideToggle = B and NoStun = K)
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -41,7 +41,8 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
     MenuToggle = Enum.KeyCode.N,
-    HideToggle = Enum.KeyCode.B
+    HideToggle = Enum.KeyCode.B,
+    NoStunKey = Enum.KeyCode.K
 }
 
 -- Settings States & _G Integration
@@ -115,7 +116,7 @@ local function IsUsingPortal(targetModel)
     return false
 end
 
--- Fast Attack Classes (Updated to ignore Portal users)
+-- Fast Attack Classes
 local FastAttack1 = { Distance = 100 }
 
 function FastAttack1:Attack(BasePart, OthersEnemies)
@@ -245,50 +246,63 @@ local function StartAttacksWithMode(mode)
     end)
 end
 
--- Completely Overhauled Robust No Stun Loop
-RunService.Stepped:Connect(function()
+-- Integrated Custom No Stun System (vincentplayz9356)
+local function setupCharacter(character)
     if not NoStunSettings.Enabled then return end
-
-    local char = localPlayer.Character
-    if not char then return end
     
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
     
-    if humanoid then
-        pcall(function()
+    humanoid.Sit = false
+    
+    local connections = {}
+    
+    local function handleBadState(newState)
+        if not NoStunSettings.Enabled then return false end
+        if newState == Enum.HumanoidStateType.Ragdoll or 
+           newState == Enum.HumanoidStateType.FallingDown or 
+           newState == Enum.HumanoidStateType.PlatformStanding or
+           newState == Enum.HumanoidStateType.Seated then
             humanoid.Sit = false
             humanoid.PlatformStand = false
-            
-            for _, state in ipairs({
-                Enum.HumanoidStateType.Ragdoll,
-                Enum.HumanoidStateType.FallingDown,
-                Enum.HumanoidStateType.PlatformStanding,
-                Enum.HumanoidStateType.Seated,
-                Enum.HumanoidStateType.Stun
-            }) do
-                pcall(function() humanoid:SetStateEnabled(state, false) end)
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            if character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.Anchored = false
             end
-            
-            local currentState = humanoid:GetState()
-            if currentState == Enum.HumanoidStateType.Ragdoll or 
-               currentState == Enum.HumanoidStateType.FallingDown or 
-               currentState == Enum.HumanoidStateType.PlatformStanding or 
-               currentState == Enum.HumanoidStateType.Seated or
-               currentState == Enum.HumanoidStateType.Stun then
-                humanoid:ChangeState(Enum.HumanoidStateType.Running)
-            end
-        end)
-    end
-
-    pcall(function()
-        for _, attr in ipairs({"Stun", "Stunned", "Ragdoll", "DisableInputs", "Freeze"}) do
-            if char:GetAttribute(attr) ~= nil then
-                char:SetAttribute(attr, false)
-            end
+            return true
         end
-    end)
-end)
+        return false
+    end
+    
+    handleBadState(humanoid:GetState())
+    
+    table.insert(connections, humanoid.StateChanged:Connect(function(_, newState)
+        handleBadState(newState)
+    end))
+    
+    for _, seat in pairs(Workspace:GetDescendants()) do
+        if seat:IsA("Seat") then
+            table.insert(connections, seat:GetPropertyChangedSignal("Occupant"):Connect(function()
+                if NoStunSettings.Enabled and seat.Occupant == humanoid then
+                    task.wait(0.01)
+                    humanoid.Sit = false
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end))
+        end
+    end
+    
+    table.insert(connections, humanoid.Died:Connect(function()
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+    end))
+end
+
+if localPlayer.Character then
+    setupCharacter(localPlayer.Character)
+end
+localPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Save / Load Functions
 local function saveKeybinds()
@@ -332,7 +346,7 @@ local function isPlayerAlly(player)
     return false
 end
 
--- Fixed & Bulletproof Billboard ESP System
+-- Billboard ESP System
 local activeESPs = {}
 
 local function getPlayerColor(player)
@@ -349,7 +363,7 @@ end
 local function createESP(player)
     if player == localPlayer then return end
 
-    local function setupCharacter(char)
+    local function setupCharacterESP(char)
         if activeESPs[player] then
             if activeESPs[player].billboard then activeESPs[player].billboard:Destroy() end
             if activeESPs[player].conn then activeESPs[player].conn:Disconnect() end
@@ -408,9 +422,9 @@ local function createESP(player)
     end
 
     if player.Character then
-        setupCharacter(player.Character)
+        setupCharacterESP(player.Character)
     end
-    player.CharacterAdded:Connect(setupCharacter)
+    player.CharacterAdded:Connect(setupCharacterESP)
 end
 
 for _, p in ipairs(Players:GetPlayers()) do
@@ -447,7 +461,7 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
-local frameHeight = isAdmin and 590 or 440
+local frameHeight = isAdmin and 630 or 480
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
@@ -573,6 +587,7 @@ local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
 local btnFastAttack = createToggleRow("Fast Attack", _G.Settings.FastAttack, 298)
 local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
+local btnNoStunKey = createFlatRow("No Stun Keybind", "NoStunKey", 374)
 
 local buttonMap = {
     PlayerCam = btnPlayerCam,
@@ -580,12 +595,13 @@ local buttonMap = {
     SuperJump = btnBigJump,
     LongDash = btnLongDashOnly,
     TpEnemy = btnTpEnemy,
-    TpAlly = btnTpAlly
+    TpAlly = btnTpAlly,
+    NoStunKey = btnNoStunKey
 }
 
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
-SaveButton.Position = UDim2.new(0, 10, 0, 380)
+SaveButton.Position = UDim2.new(0, 10, 0, 418)
 SaveButton.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
 SaveButton.Font = Enum.Font.SourceSansBold
 SaveButton.TextSize = 13
@@ -608,7 +624,7 @@ end)
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
-    AdminHeader.Position = UDim2.new(0, 10, 0, 420)
+    AdminHeader.Position = UDim2.new(0, 10, 0, 458)
     AdminHeader.BackgroundTransparency = 1
     AdminHeader.Font = Enum.Font.SourceSansBold
     AdminHeader.TextSize = 13
@@ -619,7 +635,7 @@ if isAdmin then
 
     local UserScroll = Instance.new("ScrollingFrame")
     UserScroll.Size = UDim2.new(1, -20, 0, 110)
-    UserScroll.Position = UDim2.new(0, 10, 0, 445)
+    UserScroll.Position = UDim2.new(0, 10, 0, 483)
     UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     UserScroll.BorderSizePixel = 0
     UserScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -720,11 +736,16 @@ btnFastAttack.MouseButton1Click:Connect(function()
     end
 end)
 
-btnNoStun.MouseButton1Click:Connect(function()
+local function toggleNoStun()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-end)
+    if NoStunSettings.Enabled and localPlayer.Character then
+        setupCharacter(localPlayer.Character)
+    end
+end
+
+btnNoStun.MouseButton1Click:Connect(toggleNoStun)
 
 local listeningKey = nil
 for keyName, btn in pairs(buttonMap) do
@@ -823,6 +844,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
     if input.KeyCode == Keybinds.HideToggle then
         ScreenGui.Enabled = not ScreenGui.Enabled
+        return
+    end
+    if input.KeyCode == Keybinds.NoStunKey then
+        toggleNoStun()
         return
     end
     
