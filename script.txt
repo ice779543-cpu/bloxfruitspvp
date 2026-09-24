@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits (ESP Always Active, Fast Attack Throttled & Smooth Flight Raid Fix)
+    Blox Fruits (ESP Always Active, Universal Fast Attack & Smooth Flight Raid Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -60,7 +60,7 @@ local Net = Modules and SafeWaitForChild(Modules, "Net")
 local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
 local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
--- Stable Anti-Spam Attack Function
+-- Universal Fast Attack Function (Supports multiple weapon/fighting style remotes + global fallback)
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
@@ -68,10 +68,13 @@ local function executeAttack(targetRoot, targetHead)
     local equippedWeapon = char:FindFirstChildOfClass("Tool")
     if equippedWeapon then
         pcall(function()
-            local leftClick = equippedWeapon:FindFirstChild("LeftClickRemote")
-            if leftClick and targetRoot then
+            local attackRemote = equippedWeapon:FindFirstChild("LeftClickRemote") 
+                or equippedWeapon:FindFirstChild("ToolAttack") 
+                or equippedWeapon:FindFirstChild("AttackRemote")
+                
+            if attackRemote and targetRoot then
                 local direction = (targetRoot.Position - char:GetPivot().Position).Unit
-                leftClick:FireServer(direction, 1)
+                attackRemote:FireServer(direction, 1)
             end
         end)
     end
@@ -416,7 +419,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- THROTTLED & FIXED FAST ATTACK LOOP (Prevents Server Lockout during Raids)
+-- THROTTLED FAST ATTACK LOOP
 task.spawn(function()
     while true do
         if FastAttackSettings.AutoClick then
@@ -424,7 +427,6 @@ task.spawn(function()
             if char and char:FindFirstChildOfClass("Tool") then
                 local myRoot = char:FindFirstChild("HumanoidRootPart")
                 
-                -- Check Players
                 for _, plr in ipairs(Players:GetPlayers()) do
                     if plr ~= localPlayer and plr.Character then
                         local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -436,7 +438,6 @@ task.spawn(function()
                     end
                 end
 
-                -- Check Raid / World Mobs
                 local enemiesFolder = Workspace:FindFirstChild("Enemies")
                 if enemiesFolder then
                     for _, mob in pairs(enemiesFolder:GetChildren()) do
@@ -488,7 +489,7 @@ task.spawn(function()
     end
 end)
 
--- Raid Automation Script (Smooth Flight instead of Instant Teleportation)
+-- Raid Automation Script (Smooth Flight & Strict Raid-Only Targeting)
 local currentTween = nil
 local function stopTween()
     if currentTween then
@@ -574,26 +575,11 @@ task.spawn(function()
                     local myRoot = character and character:FindFirstChild("HumanoidRootPart")
 
                     if targetMobRoot and targetMobHead and myRoot then
-                        -- Smoothly fly toward the active enemy mob instead of teleporting
                         smoothFlyTo(targetMobRoot.CFrame * CFrame.new(0, 12, 0), 280)
                         executeAttack(targetMobRoot, targetMobHead)
                     else
                         stopTween()
                         if myRoot then myRoot.Anchored = false end
-                        local locs = Workspace:FindFirstChild("_WorldOrigin") and Workspace._WorldOrigin:FindFirstChild("Locations")
-                        if locs then
-                            local order = {5, 4, 3, 2, 1}
-                            for _, id in ipairs(order) do
-                                local islandName = "Island " .. id
-                                local island = locs:FindFirstChild(islandName)
-                                if island and myRoot then
-                                    if (island.Position - myRoot.Position).Magnitude <= 4500 then
-                                        smoothFlyTo(island.CFrame * CFrame.new(0, 40, 0), 300)
-                                        break
-                                    end
-                                end
-                            end
-                        end
                     end
                 else
                     stopTween()
