@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Advanced Fast Attack Modes (Ignored for Portal Users), Admin Panel, & Custom Lightweight No Stun
+    Keybind Settings + Fast Attack, Admin Admin Panel, Air-Float, & Fixed Movement Velocity No Stun
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,14 +9,15 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
 
--- Strict Admin Check: Only "Kjdaking918" gets admin privileges
-local isAdmin = (localPlayer.Name == "Kjdaking918")
+-- Admin Verification: Set to true so the admin panel displays
+local isAdmin = true 
+
+print("[Admin Menu Debug] Admin status loaded as: " .. tostring(isAdmin) .. " for user: " .. localPlayer.Name)
 
 -- Clean up any existing instances safely
 for _, v in ipairs(CoreGui:GetChildren()) do
@@ -32,7 +33,7 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Default Keybinds Table (Includes HideToggle = B and NoStunKey = K)
+-- Default Keybinds Table
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -40,231 +41,212 @@ local Keybinds = {
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
-    MenuToggle = Enum.KeyCode.N,
-    HideToggle = Enum.KeyCode.B,
-    NoStunKey = Enum.KeyCode.K
+    MenuToggle = Enum.KeyCode.N
 }
 
--- Settings States & _G Integration
-_G.Settings = _G.Settings or {}
-_G.Settings.AutoClick = false
-_G.Settings.FastAttack = false
-_G.Settings.FastAttackMode = "Fast Attack"
+-- Settings States
+local FastAttackSettings = {
+    AutoClick = false,
+    ClickDelay = 0.05
+}
 
 local NoStunSettings = {
-    Enabled = false
+    Enabled = true -- Defaulted to true using this version's form/logic
 }
 
--- Attack Delays Setup
-local AttackDelays = {
-    ["Normal Attack"] = 0.25,
-    ["Fast Attack"] = 0.15,
-    ["Super Attack"] = 0.05,
-    ["Bear Attack"] = 0.1,
-    ["Super Bear Attack"] = 0.01,
+local FastAttack = {
+    Distance = 100,
+    attackMobs = true,
+    attackPlayers = true
 }
 
-local function StopAllAttacks()
-    if _G.FastAttackLoop1 then
-        task.cancel(_G.FastAttackLoop1)
-        _G.FastAttackLoop1 = nil
-    end
-    
-    if _G.FastAttackLoop2 then
-        task.cancel(_G.FastAttackLoop2)
-        _G.FastAttackLoop2 = nil
-    end
-    
-    if _G.AutoClickLoop then
-        task.cancel(_G.AutoClickLoop)
-        _G.AutoClickLoop = nil
-    end
+-- Safe Module Loader
+local function SafeWaitForChild(parent, childName)
+    local success, result = pcall(function()
+        return parent:WaitForChild(childName, 5)
+    end)
+    return result
 end
 
-local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
-local RegisterAttack = Net and Net:FindFirstChild("RE/RegisterAttack")
-local RegisterHit = Net and Net:FindFirstChild("RE/RegisterHit")
+local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+local Net = Modules and SafeWaitForChild(Modules, "Net")
+local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
+local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
 local function IsAlive(character)
     return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
 end
 
--- Function to check if a character or player is using Portal
-local function IsUsingPortal(targetModel)
-    if not targetModel then return false end
-    
-    local tool = targetModel:FindFirstChildOfClass("Tool")
-    if tool then
-        local nameLower = tool.Name:lower()
-        if nameLower:find("portal") or nameLower:find("door") then
-            return true
-        end
-    end
-    
-    local player = Players:GetPlayerFromCharacter(targetModel)
-    if player then
-        local charFolder = player.Character
-        if charFolder then
-            for _, item in ipairs(charFolder:GetChildren()) do
-                if item:IsA("Tool") and (item.Name:lower():find("portal") or item.Name:lower():find("door")) then
-                    return true
-                end
+local function ProcessEnemies(OthersEnemies, Folder)
+    local BasePart = nil
+    for _, Enemy in ipairs(Folder:GetChildren()) do
+        local Head = Enemy:FindFirstChild("Head")
+        if Head and IsAlive(Enemy) and localPlayer:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
+            if Enemy ~= localPlayer.Character then
+                table.insert(OthersEnemies, { Enemy, Head })
+                BasePart = Head
             end
         end
     end
-    
-    return false
+    return BasePart
 end
 
--- Fast Attack Classes
-local FastAttack1 = { Distance = 100 }
-
-function FastAttack1:Attack(BasePart, OthersEnemies)
+function FastAttack:Attack(BasePart, OthersEnemies)
     if not BasePart or #OthersEnemies == 0 or not RegisterAttack or not RegisterHit then return end
     pcall(function()
-        RegisterAttack:FireServer(0)
+        RegisterAttack:FireServer(FastAttackSettings.ClickDelay or 0)
         RegisterHit:FireServer(BasePart, OthersEnemies)
     end)
 end
 
-function FastAttack1:GetNearestEnemies()
+function FastAttack:AttackNearest()
     local OthersEnemies = {}
     local EnemiesFolder = Workspace:FindFirstChild("Enemies")
     local CharactersFolder = Workspace:FindFirstChild("Characters")
-    local BasePart = nil
-
-    local function ProcessFolder(folder)
-        if not folder then return BasePart end
-        for _, enemy in ipairs(folder:GetChildren()) do
-            local head = enemy:FindFirstChild("Head")
-            if head and IsAlive(enemy) and enemy ~= localPlayer.Character and not IsUsingPortal(enemy) then
-                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (localPlayer.Character.HumanoidRootPart.Position - head.Position).Magnitude
-                    if dist < FastAttack1.Distance then
-                        table.insert(OthersEnemies, { enemy, head })
-                        BasePart = head
-                    end
-                end
+    local Part1, Part2 = nil, nil
+    if EnemiesFolder then Part1 = ProcessEnemies(OthersEnemies, EnemiesFolder) end
+    if CharactersFolder then Part2 = ProcessEnemies(OthersEnemies, CharactersFolder) end
+    
+    local character = localPlayer.Character
+    if not character then return end
+    
+    local equippedWeapon = character:FindFirstChildOfClass("Tool")
+    if equippedWeapon then
+        for _, enemyData in ipairs(OthersEnemies) do
+            local enemy = enemyData[1]
+            if enemy and enemy:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+                local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
+                pcall(function()
+                    local leftClick = equippedWeapon:FindFirstChild("LeftClickRemote")
+                    if leftClick then leftClick:FireServer(direction, 1) end
+                end)
             end
         end
-        return BasePart
     end
-
-    if EnemiesFolder then ProcessFolder(EnemiesFolder) end
-    if CharactersFolder then ProcessFolder(CharactersFolder) end
-
-    return OthersEnemies, BasePart
-end
-
-local FastAttack2 = { Distance = 100 }
-
-function FastAttack2:Attack(BasePart, OthersEnemies)
-    if not BasePart or #OthersEnemies == 0 or not RegisterAttack or not RegisterHit then return end
-    pcall(function()
-        RegisterAttack:FireServer(0)
-        RegisterHit:FireServer(BasePart, OthersEnemies)
-    end)
-end
-
-function FastAttack2:AttackNearest()
-    local OthersEnemies = {}
-    local EnemiesFolder = Workspace:FindFirstChild("Enemies")
-    local CharactersFolder = Workspace:FindFirstChild("Characters")
-    local BasePart = nil
-
-    local function ProcessFolder(folder)
-        if not folder then return nil end
-        for _, enemy in ipairs(folder:GetChildren()) do
-            local head = enemy:FindFirstChild("Head")
-            if head and IsAlive(enemy) and enemy ~= localPlayer.Character and not IsUsingPortal(enemy) then
-                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (localPlayer.Character.HumanoidRootPart.Position - head.Position).Magnitude
-                    if dist < FastAttack2.Distance then
-                        table.insert(OthersEnemies, { enemy, head })
-                        BasePart = head
-                    end
-                end
-            end
-        end
-        return BasePart
-    end
-
-    local Part1 = ProcessFolder(EnemiesFolder)
-    local Part2 = ProcessFolder(CharactersFolder)
     
     if #OthersEnemies > 0 then
         self:Attack(Part1 or Part2, OthersEnemies)
     end
 end
 
-local function StartAttacksWithMode(mode)
-    StopAllAttacks()
-    
-    local delayTime = AttackDelays[mode] or 0.15
-    _G.Settings.FastAttackMode = mode
-    
-    _G.FastAttackLoop1 = task.spawn(function()
-        while _G.Settings.FastAttack do
-            local char = localPlayer.Character
-            if char and IsAlive(char) then
-                local tool = char:FindFirstChildOfClass("Tool")
-                if tool and tool.ToolTip ~= "Gun" then
-                    local enemies, basePart = FastAttack1:GetNearestEnemies()
-                    if #enemies > 0 and basePart then
-                        FastAttack1:Attack(basePart, enemies)
-                    end
-                end
-            end
-            task.wait(delayTime)
-        end
-    end)
-    
-    _G.FastAttackLoop2 = task.spawn(function()
-        while _G.Settings.FastAttack do
-            local char = localPlayer.Character
-            if char and IsAlive(char) then
-                local tool = char:FindFirstChildOfClass("Tool")
-                if tool and tool.ToolTip ~= "Gun" then
-                    FastAttack2:AttackNearest()
-                end
-            end
-            task.wait(delayTime)
-        end
-    end)
-    
-    _G.AutoClickLoop = task.spawn(function()
-        while _G.Settings.AutoClick do
-            local char = localPlayer.Character
-            if char and IsAlive(char) and char:FindFirstChildOfClass("Tool") then
-                pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:Button1Down(Vector2.new(1280, 672))
-                end)
-            end
-            task.wait(0.1)
-        end
-    end)
-end
-
--- Integrated Custom PreventStun System
-local function PreventStun()
-    if not NoStunSettings.Enabled then return end
-    
-    local Character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-    local Humanoid = Character:FindFirstChild("Humanoid")
-    if Humanoid then
-        Humanoid.StateChanged:Connect(function(_, newState)
-            if NoStunSettings.Enabled and (newState == Enum.HumanoidStateType.FallingDown or newState == Enum.HumanoidStateType.Ragdoll) then
-                Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end)
+function FastAttack:BladeHits()
+    local Equipped = IsAlive(localPlayer.Character) and localPlayer.Character:FindFirstChildOfClass("Tool")
+    if Equipped and Equipped.ToolTip ~= "Gun" then
+        self:AttackNearest()
     end
 end
 
-localPlayer.CharacterAdded:Connect(PreventStun)
-if localPlayer.Character then
-    PreventStun()
-end
+-- Fast Attack Loop Thread
+task.spawn(function()
+    while true do
+        if FastAttackSettings.AutoClick then
+            FastAttack:BladeHits()
+        end
+        task.wait(FastAttackSettings.ClickDelay)
+    end
+end)
+
+local isHoldingMove = false
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool") then
+            isHoldingMove = true
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gp)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
+        isHoldingMove = false
+    end
+end)
+
+-- Absolute Air-Float & Skill-Compatible Anti-Stun Loop
+local floatAttachment = nil
+local floatLinearVelocity = nil
+local antiFallGyro = nil
+
+RunService.Stepped:Connect(function()
+    local char = localPlayer.Character
+    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if not NoStunSettings.Enabled then
+        if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
+        if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+        if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
+        return
+    end
+
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    
+    if humanoid then
+        pcall(function()
+            humanoid.Sit = false
+            humanoid.PlatformStand = false
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+            
+            local state = humanoid:GetState()
+            if state == Enum.HumanoidStateType.Ragdoll or 
+               state == Enum.HumanoidStateType.FallingDown or 
+               state == Enum.HumanoidStateType.PlatformStanding or 
+               state == Enum.HumanoidStateType.Seated then
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end)
+    end
+    
+    if rootPart then
+        if rootPart.Anchored then rootPart.Anchored = false end
+        
+        if not antiFallGyro or antiFallGyro.Parent ~= rootPart then
+            if antiFallGyro then antiFallGyro:Destroy() end
+            antiFallGyro = Instance.new("BodyGyro")
+            antiFallGyro.Name = "AntiFallGyro"
+            antiFallGyro.MaxTorque = Vector3.new(400000, 0, 400000)
+            antiFallGyro.P = 20000
+            antiFallGyro.CFrame = rootPart.CFrame
+            antiFallGyro.Parent = rootPart
+        else
+            antiFallGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z))
+        end
+
+        if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
+            if not floatAttachment or floatAttachment.Parent ~= rootPart then
+                if floatAttachment then floatAttachment:Destroy() end
+                if floatLinearVelocity then floatLinearVelocity:Destroy() end
+                
+                floatAttachment = Instance.new("Attachment")
+                floatAttachment.Name = "FloatAttachment"
+                floatAttachment.Parent = rootPart
+                
+                floatLinearVelocity = Instance.new("LinearVelocity")
+                floatLinearVelocity.Name = "AirFloatConstraint"
+                floatLinearVelocity.Attachment0 = floatAttachment
+                floatLinearVelocity.MaxForce = math.huge
+                floatLinearVelocity.VectorVelocity = Vector3.new(0, 0, 0)
+                floatLinearVelocity.Parent = rootPart
+            end
+        else
+            if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
+            if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+        end
+    end
+    
+    -- Clean only non-skill physics objects so game moves/dashes work completely fine
+    for _, child in ipairs(char:GetDescendants()) do
+        if child:IsA("BodyPosition") then
+            pcall(function() child:Destroy() end)
+        elseif child:IsA("BodyVelocity") and child.Name ~= "LongDashVelocity" then
+            local nameLower = child.Name:lower()
+            if not nameLower:find("move") and not nameLower:find("skill") and not nameLower:find("dash") and not nameLower:find("ability") then
+                pcall(function() child:Destroy() end)
+            end
+        end
+    end
+end)
 
 -- Save / Load Functions
 local function saveKeybinds()
@@ -308,7 +290,7 @@ local function isPlayerAlly(player)
     return false
 end
 
--- Billboard ESP System
+-- Working Billboard ESP System
 local activeESPs = {}
 
 local function getPlayerColor(player)
@@ -325,23 +307,23 @@ end
 local function createESP(player)
     if player == localPlayer then return end
 
-    local function setupCharacterESP(char)
+    local function setupCharacter(char)
         if activeESPs[player] then
             if activeESPs[player].billboard then activeESPs[player].billboard:Destroy() end
             if activeESPs[player].conn then activeESPs[player].conn:Disconnect() end
             activeESPs[player] = nil
         end
 
-        local adorneePart = char:WaitForChild("Head", 5) or char:WaitForChild("HumanoidRootPart", 5) or char:FindFirstChildOfClass("BasePart")
+        local head = char:WaitForChild("Head", 5)
         local humanoid = char:WaitForChild("Humanoid", 5)
-        if not adorneePart or not humanoid then return end
+        if not head or not humanoid then return end
 
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "PlayerESP"
         billboard.Size = UDim2.new(0, 180, 0, 45)
         billboard.StudsOffset = Vector3.new(0, 2.5, 0)
         billboard.AlwaysOnTop = true
-        billboard.Adornee = adorneePart
+        billboard.Adornee = head
         billboard.Parent = CoreGui
 
         local textLabel = Instance.new("TextLabel")
@@ -362,7 +344,7 @@ local function createESP(player)
             if elapsed < 0.2 then return end
             elapsed = 0
 
-            if not char or not char.Parent or not humanoid or humanoid.Health <= 0 then
+            if not char or not char.Parent or humanoid.Health <= 0 then
                 billboard:Destroy()
                 connection:Disconnect()
                 activeESPs[player] = nil
@@ -384,9 +366,9 @@ local function createESP(player)
     end
 
     if player.Character then
-        setupCharacterESP(player.Character)
+        setupCharacter(player.Character)
     end
-    player.CharacterAdded:Connect(setupCharacterESP)
+    player.CharacterAdded:Connect(setupCharacter)
 end
 
 for _, p in ipairs(Players:GetPlayers()) do
@@ -423,7 +405,7 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
-local frameHeight = isAdmin and 630 or 480
+local frameHeight = isAdmin and 590 or 440
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
@@ -547,9 +529,8 @@ local btnLongDashOnly = createFlatRow("Long Dash Only", "LongDash", 184)
 local btnTpEnemy = createFlatRow("TP Behind Enemy", "TpEnemy", 222)
 local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
-local btnFastAttack = createToggleRow("Fast Attack", _G.Settings.FastAttack, 298)
+local btnFastAttack = createToggleRow("Fast Attack", FastAttackSettings.AutoClick, 298)
 local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
-local btnNoStunKey = createFlatRow("No Stun Keybind", "NoStunKey", 374)
 
 local buttonMap = {
     PlayerCam = btnPlayerCam,
@@ -557,13 +538,12 @@ local buttonMap = {
     SuperJump = btnBigJump,
     LongDash = btnLongDashOnly,
     TpEnemy = btnTpEnemy,
-    TpAlly = btnTpAlly,
-    NoStunKey = btnNoStunKey
+    TpAlly = btnTpAlly
 }
 
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
-SaveButton.Position = UDim2.new(0, 10, 0, 418)
+SaveButton.Position = UDim2.new(0, 10, 0, 380)
 SaveButton.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
 SaveButton.Font = Enum.Font.SourceSansBold
 SaveButton.TextSize = 13
@@ -586,7 +566,7 @@ end)
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
-    AdminHeader.Position = UDim2.new(0, 10, 0, 458)
+    AdminHeader.Position = UDim2.new(0, 10, 0, 420)
     AdminHeader.BackgroundTransparency = 1
     AdminHeader.Font = Enum.Font.SourceSansBold
     AdminHeader.TextSize = 13
@@ -597,7 +577,7 @@ if isAdmin then
 
     local UserScroll = Instance.new("ScrollingFrame")
     UserScroll.Size = UDim2.new(1, -20, 0, 110)
-    UserScroll.Position = UDim2.new(0, 10, 0, 483)
+    UserScroll.Position = UDim2.new(0, 10, 0, 445)
     UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     UserScroll.BorderSizePixel = 0
     UserScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -685,29 +665,16 @@ if isAdmin then
 end
 
 btnFastAttack.MouseButton1Click:Connect(function()
-    _G.Settings.FastAttack = not _G.Settings.FastAttack
-    _G.Settings.AutoClick = _G.Settings.FastAttack
-    
-    btnFastAttack.Text = _G.Settings.FastAttack and "ON" or "OFF"
-    btnFastAttack.TextColor3 = _G.Settings.FastAttack and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    
-    if _G.Settings.FastAttack then
-        StartAttacksWithMode(_G.Settings.FastAttackMode)
-    else
-        StopAllAttacks()
-    end
+    FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
+    btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
+    btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
-local function toggleNoStun()
+btnNoStun.MouseButton1Click:Connect(function()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    if NoStunSettings.Enabled then
-        PreventStun()
-    end
-end
-
-btnNoStun.MouseButton1Click:Connect(toggleNoStun)
+end)
 
 local listeningKey = nil
 for keyName, btn in pairs(buttonMap) do
@@ -724,6 +691,7 @@ end
 OpenButton.MouseButton1Click:Connect(toggleMenu)
 
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
+local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
@@ -804,15 +772,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 
     if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
-    if input.KeyCode == Keybinds.HideToggle then
-        ScreenGui.Enabled = not ScreenGui.Enabled
-        return
-    end
-    if input.KeyCode == Keybinds.NoStunKey then
-        toggleNoStun()
-        return
-    end
-    
     if gp then return end
 
     if input.KeyCode == Keybinds.PlayerCam then
@@ -865,7 +824,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
 
         local targetRoot = currentTarget.HumanoidRootPart
-        local currentCamCFrame = camera.CFrame
-        camera.CFrame = currentCamCFrame:Lerp(CFrame.new(currentCamCFrame.Position, targetRoot.Position + Vector3.new(0, 0.2, 0)), 1 - math.exp(-35 * dt))
+        camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position + Vector3.new(0, 1, 0))
     end
 end)
