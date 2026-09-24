@@ -158,10 +158,45 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Absolute Air-Float & Skill-Compatible Anti-Stun Loop (Fully Reversible when toggled OFF)
+-- Absolute Air-Float & Skill-Compatible Anti-Stun Loop (Restores standard character states completely on OFF)
 local floatAttachment = nil
 local floatLinearVelocity = nil
 local antiFallGyro = nil
+
+local function cleanupNoStun()
+    if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
+    if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+    if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
+    
+    local char = localPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            pcall(function()
+                -- Fully restore natural Roblox movement states
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                humanoid.PlatformStand = false
+                humanoid.Sit = false
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end)
+        end
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            rootPart.Anchored = false
+            local gyro = rootPart:FindFirstChild("AntiFallGyro")
+            if gyro then gyro:Destroy() end
+            local constraint = rootPart:FindFirstChild("AirFloatConstraint")
+            if constraint then constraint:Destroy() end
+            local att = rootPart:FindFirstChild("FloatAttachment")
+            if att then att:Destroy() end
+        end
+    end
+end
 
 RunService.Stepped:Connect(function()
     local char = localPlayer.Character
@@ -169,19 +204,6 @@ RunService.Stepped:Connect(function()
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     
     if not NoStunSettings.Enabled then
-        if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
-        if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
-        if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
-        
-        -- Fully restore vanilla humanoid states when No Stun is turned OFF
-        if humanoid then
-            pcall(function()
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-            end)
-        end
         return
     end
     
@@ -581,17 +603,8 @@ local function toggleNoStunState()
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
     
-    -- Immediately reset humanoid states when turned off manually
-    if not NoStunSettings.Enabled and localPlayer.Character then
-        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            pcall(function()
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-            end)
-        end
+    if not NoStunSettings.Enabled then
+        cleanupNoStun()
     end
 end
 
