@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Panel, & Fixed Working No Stun Toggle
+    Keybind Settings + Fast Attack, Admin Panel, & Fixed Working No Stun
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -146,7 +146,7 @@ task.spawn(function()
     end
 end)
 
--- Pure Anti-Stun Loop (No floating, just prevents stuns/ragdolls)
+-- Fixed No Stun Loop
 RunService.Stepped:Connect(function()
     if not NoStunSettings.Enabled then return end
 
