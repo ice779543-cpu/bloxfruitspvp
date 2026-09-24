@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Complete Hub (Massive Feature-Rich Script with Auto-Cleanup & ESP)
+    Blox Fruits Complete Hub (Team-Colored ESP: Red for Pirates, Blue for Marines)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -153,7 +153,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "  Blox Fruit"
+TitleLabel.Text = "  Blox Fruit Hub"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 
@@ -330,7 +330,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
--- POPULATE PvP TAB (ESP Included Back)
+-- POPULATE PvP TAB
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnPlayerESP = createToggleRow(TabPvP, "Player ESP", PvPStates.PlayerESP, 45)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 85)
@@ -388,7 +388,7 @@ end)
 
 -- [[ ADVANCED BACKGROUND LOGIC & AUTOMATION ]] --
 
--- Player ESP Logic
+-- Player ESP Logic (Name, Level, Health Bar, & Team Color Integration)
 local espFolder = Instance.new("Folder")
 espFolder.Name = "PlayerESP"
 espFolder.Parent = CoreGui
@@ -404,23 +404,62 @@ RunService.RenderStepped:Connect(function()
                 local hum = char.Humanoid
                 
                 if hum.Health > 0 then
+                    -- Get Level safely from leaderstats or data folders
+                    local playerLevel = "?"
+                    local stats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Data")
+                    if stats and stats:FindFirstChild("Level") then
+                        playerLevel = tostring(stats.Level.Value)
+                    end
+
+                    -- Determine Team Color (Marine = Blue, Pirate = Red)
+                    local espColor = Color3.fromRGB(255, 50, 50) -- Default Pirate Red
+                    if plr.Team and (plr.Team.Name == "Marine" or plr.Team.Name == "Marines") then
+                        espColor = Color3.fromRGB(50, 150, 255) -- Marine Blue
+                    end
+
+                    -- Billboard Container
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "ESP_" .. plr.Name
-                    billboard.Size = UDim2.new(0, 100, 0, 50)
-                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.Size = UDim2.new(0, 140, 0, 60)
+                    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
                     billboard.AlwaysOnTop = true
                     billboard.Adornee = root
                     billboard.Parent = espFolder
                     
+                    -- Info Label (Name + Level + HP Number)
                     local textLbl = Instance.new("TextLabel")
-                    textLbl.Size = UDim2.new(1, 0, 1, 0)
+                    textLbl.Size = UDim2.new(1, 0, 0.6, 0)
                     textLbl.BackgroundTransparency = 1
                     textLbl.Font = Enum.Font.SourceSansBold
                     textLbl.TextSize = 13
-                    textLbl.TextColor3 = Color3.fromRGB(255, 50, 50)
-                    textLbl.TextStrokeTransparency = 0.5
-                    textLbl.Text = string.Format("%s\n[%dHP]", plr.Name, math.floor(hum.Health))
+                    textLbl.TextColor3 = espColor
+                    textLbl.TextStrokeTransparency = 0.3
+                    textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
                     textLbl.Parent = billboard
+
+                    -- Background Health Bar Frame
+                    local bgBar = Instance.new("Frame")
+                    bgBar.Size = UDim2.new(1, 0, 0, 6)
+                    bgBar.Position = UDim2.new(0, 0, 0.7, 0)
+                    bgBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    bgBar.BorderSizePixel = 0
+                    bgBar.Parent = billboard
+                    
+                    local bgCorner = Instance.new("UICorner")
+                    bgCorner.CornerRadius = UDim.new(1, 0)
+                    bgCorner.Parent = bgBar
+
+                    -- Active Health Fill Bar (Matches Team Color)
+                    local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                    local fillBar = Instance.new("Frame")
+                    fillBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                    fillBar.BackgroundColor3 = espColor
+                    fillBar.BorderSizePixel = 0
+                    fillBar.Parent = bgBar
+                    
+                    local fillCorner = Instance.new("UICorner")
+                    fillCorner.CornerRadius = UDim.new(1, 0)
+                    fillCorner.Parent = fillBar
                 end
             end
         end
