@@ -1,6 +1,5 @@
 --[[
-    Blox Fruits PvP Hub & Raid Auto Farm Script
-    Features: Left-Side UI Menu, PvP (Fast Attack, No Stun, Auto V3), Raid (Auto Farm Raid, Auto V4)
+    Blox Fruits Complete Hub (Massive Feature-Rich Script with Auto-Cleanup)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -11,15 +10,28 @@ local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
-local saveFileName = "KeybindSettings_" .. localPlayer.Name .. ".json"
+local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- Clean up any existing instances safely
+-- Aggressive Cleanup: Wipe out all previous instances so reloading never stacks UIs
+local oldUINames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI"}
 for _, v in ipairs(CoreGui:GetChildren()) do
-    if v.Name == "KeybindSettingUI" or v.Name == "PvPHUDUI" or v.Name == "PlayerESP" or v.Name == "RaidFarmUI" then
-        v:Destroy()
+    for _, name in ipairs(oldUINames) do
+        if v.Name == name then
+            v:Destroy()
+        end
+    end
+end
+if localPlayer:FindFirstChild("PlayerGui") then
+    for _, v in ipairs(localPlayer.PlayerGui:GetChildren()) do
+        for _, name in ipairs(oldUINames) do
+            if v.Name == name then
+                v:Destroy()
+            end
+        end
     end
 end
 
@@ -37,43 +49,23 @@ local Keybinds = {
 }
 
 -- Settings States
-local FastAttackSettings = {
-    AutoClick = false,
-    ClickDelay = 0.05
-}
+local FastAttackSettings = { AutoClick = false, ClickDelay = 0.05, Distance = 65 }
+local NoStunSettings = { Enabled = false }
+local PvPStates = { AutoV3 = false }
+local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
-local NoStunSettings = {
-    Enabled = false
-}
-
-local PvPStates = {
-    AutoV3 = false
-}
-
-local RaidStates = {
-    AutoFarmRaid = false,
-    AutoV4 = false
-}
-
-local FastAttack = {
-    Distance = 100
-}
-
--- Safe Module Loader
+-- Safe Module Loader for Attacks & Remotes
 local function SafeWaitForChild(parent, childName)
-    local success, result = pcall(function()
-        return parent:WaitForChild(childName, 5)
-    end)
+    local success, result = pcall(function() return parent:WaitForChild(childName, 5) end)
     return result
 end
-
 local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
 local Net = Modules and SafeWaitForChild(Modules, "Net")
 local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
 local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
--- Dedicated Attack Function for Mobs
-local function executeAttack(mobRoot, mobHead)
+-- Universal Fast Attack (Players & NPCs)
+local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
     
@@ -81,17 +73,17 @@ local function executeAttack(mobRoot, mobHead)
     if equippedWeapon then
         pcall(function()
             local leftClick = equippedWeapon:FindFirstChild("LeftClickRemote")
-            if leftClick and mobRoot then
-                local direction = (mobRoot.Position - char:GetPivot().Position).Unit
+            if leftClick and targetRoot then
+                local direction = (targetRoot.Position - char:GetPivot().Position).Unit
                 leftClick:FireServer(direction, 1)
             end
         end)
     end
     
-    if RegisterAttack and RegisterHit and mobHead then
+    if RegisterAttack and RegisterHit and targetHead then
         pcall(function()
             RegisterAttack:FireServer(0)
-            RegisterHit:FireServer(mobHead, { {mobHead.Parent, mobHead} })
+            RegisterHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
         end)
     end
 end
@@ -117,7 +109,7 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Main UI Window Setup (Placed on the LEFT side)
+-- Main UI Window Setup (Centered, Locked, Left-Side Sidebar)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -125,7 +117,7 @@ ScreenGui.Parent = CoreGui
 
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0, 160, 0, 45)
-OpenButton.Position = UDim2.new(0, 20, 0, 100) -- Left side placement
+OpenButton.Position = UDim2.new(0, 20, 0, 100)
 OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
 OpenButton.TextSize = 15
@@ -138,15 +130,15 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Main Frame Dimensions: Width 420, Height 450 (Positioned on the Left Side)
-local frameWidth, frameHeight = 420, 450
+-- Main Frame (Locked: Draggable = false, Centered Position)
+local frameWidth, frameHeight = 500, 450
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
-MainFrame.Position = UDim2.new(0, 20, 0.5, -frameHeight/2)
+MainFrame.Position = UDim2.new(0.5, -frameWidth/2, 0.5, -frameHeight/2)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Draggable = false 
 MainFrame.Visible = true 
 MainFrame.Parent = ScreenGui
 
@@ -161,7 +153,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "  Blox Fruits Hub (Left Menu)"
+TitleLabel.Text = "  Blox Fruit"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 
@@ -169,44 +161,44 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 8)
 TitleCorner.Parent = TitleLabel
 
--- Tab Selection Buttons Bar
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, -20, 0, 30)
-TabBar.Position = UDim2.new(0, 10, 0, 50)
-TabBar.BackgroundTransparency = 1
-TabBar.Parent = MainFrame
+-- Sidebar Tab Container (Left Side)
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 130, 1, -55)
+Sidebar.Position = UDim2.new(0, 10, 0, 50)
+Sidebar.BackgroundTransparency = 1
+Sidebar.Parent = MainFrame
 
 local TabPvPBtn = Instance.new("TextButton")
-TabPvPBtn.Size = UDim2.new(0.48, 0, 1, 0)
+TabPvPBtn.Size = UDim2.new(1, 0, 0, 38)
 TabPvPBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 TabPvPBtn.Font = Enum.Font.SourceSansBold
 TabPvPBtn.TextSize = 13
 TabPvPBtn.TextColor3 = Color3.fromRGB(0, 255, 128)
 TabPvPBtn.Text = "PvP Hub"
-TabPvPBtn.Parent = TabBar
+TabPvPBtn.Parent = Sidebar
 
 local TabPvPCorner = Instance.new("UICorner")
 TabPvPCorner.CornerRadius = UDim.new(0, 6)
 TabPvPCorner.Parent = TabPvPBtn
 
 local TabRaidBtn = Instance.new("TextButton")
-TabRaidBtn.Size = UDim2.new(0.48, 0, 1, 0)
-TabRaidBtn.Position = UDim2.new(0.52, 0, 0, 0)
+TabRaidBtn.Size = UDim2.new(1, 0, 0, 38)
+TabRaidBtn.Position = UDim2.new(0, 0, 0, 48)
 TabRaidBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TabRaidBtn.Font = Enum.Font.SourceSansBold
 TabRaidBtn.TextSize = 13
 TabRaidBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 TabRaidBtn.Text = "Raid"
-TabRaidBtn.Parent = TabBar
+TabRaidBtn.Parent = Sidebar
 
 local TabRaidCorner = Instance.new("UICorner")
 TabRaidCorner.CornerRadius = UDim.new(0, 6)
 TabRaidCorner.Parent = TabRaidBtn
 
--- Content Container
+-- Content Container (Right Side)
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -20, 1, -95)
-ContentContainer.Position = UDim2.new(0, 10, 0, 85)
+ContentContainer.Size = UDim2.new(1, -155, 1, -55)
+ContentContainer.Position = UDim2.new(0, 145, 0, 50)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
@@ -214,7 +206,7 @@ ContentContainer.Parent = MainFrame
 local TabPvP = Instance.new("ScrollingFrame")
 TabPvP.Size = UDim2.new(1, 0, 1, 0)
 TabPvP.BackgroundTransparency = 1
-TabPvP.CanvasSize = UDim2.new(0, 0, 0, 420)
+TabPvP.CanvasSize = UDim2.new(0, 0, 0, 480)
 TabPvP.ScrollBarThickness = 4
 TabPvP.Visible = true
 TabPvP.Parent = ContentContainer
@@ -278,7 +270,6 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     Button.TextSize = 12
     Button.Text = initialState and "ON" or "OFF"
     Button.TextColor3 = initialState and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    Button.Active = true
     Button.Parent = Row
 
     local BC = Instance.new("UICorner")
@@ -288,16 +279,76 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     return Button
 end
 
--- POPULATE PvP TAB (Added Auto V3)
+local function createKeybindRow(parentFrame, name, keyName, yPos)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 34)
+    Row.Position = UDim2.new(0, 0, 0, yPos)
+    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.Parent = parentFrame
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.45, 0, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 12
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = name
+    Label.Parent = Row
+
+    local KeyButton = Instance.new("TextButton")
+    KeyButton.Size = UDim2.new(0, 110, 0, 26)
+    KeyButton.Position = UDim2.new(1, -115, 0.5, -13)
+    KeyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    KeyButton.Font = Enum.Font.SourceSansBold
+    KeyButton.TextSize = 12
+    KeyButton.Text = Keybinds[keyName].Name
+    KeyButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    KeyButton.Parent = Row
+    Instance.new("UICorner", KeyButton).CornerRadius = UDim.new(0, 4)
+
+    local listening = false
+    KeyButton.MouseButton1Click:Connect(function()
+        if listening then return end
+        listening = true
+        KeyButton.Text = "Press Key..."
+        KeyButton.TextColor3 = Color3.fromRGB(255, 200, 0)
+        
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                Keybinds[keyName] = input.KeyCode
+                KeyButton.Text = input.KeyCode.Name
+                KeyButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+                listening = false
+                saveKeybinds()
+                connection:Disconnect()
+            end
+        end)
+    end)
+end
+
+-- POPULATE PvP TAB (Removed the word 'Bind' from every key item name)
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
 
--- POPULATE RAID TAB (Added Auto Farm Raid & Auto V4)
+createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 125)
+createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 165)
+createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
+createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
+createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
+createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 325)
+createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 365)
+createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 405)
+
+-- POPULATE RAID TAB
 local btnAutoFarmRaid = createToggleRow(TabRaid, "Auto Farm Raid", RaidStates.AutoFarmRaid, 5)
 local btnAutoV4 = createToggleRow(TabRaid, "Auto V4", RaidStates.AutoV4, 45)
 
--- PvP Toggles Logic
+-- Button Logic Links
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
@@ -316,7 +367,6 @@ btnAutoV3.MouseButton1Click:Connect(function()
     btnAutoV3.TextColor3 = PvPStates.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- Raid Toggles Logic
 btnAutoFarmRaid.MouseButton1Click:Connect(function()
     RaidStates.AutoFarmRaid = not RaidStates.AutoFarmRaid
     btnAutoFarmRaid.Text = RaidStates.AutoFarmRaid and "ON" or "OFF"
@@ -329,19 +379,34 @@ btnAutoV4.MouseButton1Click:Connect(function()
     btnAutoV4.TextColor3 = RaidStates.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- Fast Attack Loop Thread
+-- [[ ADVANCED BACKGROUND LOGIC & AUTOMATION ]] --
+
+-- Fast Attack Loop (Players & Mobs)
 task.spawn(function()
     while true do
         if FastAttackSettings.AutoClick then
             local char = localPlayer.Character
             if char and char:FindFirstChildOfClass("Tool") then
+                local myRoot = char:FindFirstChild("HumanoidRootPart")
+                
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= localPlayer and plr.Character then
+                        local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                        local head = plr.Character:FindFirstChild("Head")
+                        local hum = plr.Character:FindFirstChild("Humanoid")
+                        if root and head and hum and hum.Health > 0 and myRoot and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                            executeAttack(root, head)
+                        end
+                    end
+                end
+
                 local enemiesFolder = Workspace:FindFirstChild("Enemies")
                 if enemiesFolder then
                     for _, mob in pairs(enemiesFolder:GetChildren()) do
                         local head = mob:FindFirstChild("Head")
                         local root = mob:FindFirstChild("HumanoidRootPart")
                         local hum = mob:FindFirstChild("Humanoid")
-                        if head and root and hum and hum.Health > 0 and localPlayer:DistanceFromCharacter(root.Position) <= FastAttack.Distance then
+                        if head and root and hum and hum.Health > 0 and myRoot and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
                             executeAttack(root, head)
                         end
                     end
@@ -352,22 +417,41 @@ task.spawn(function()
     end
 end)
 
--- Auto V3 / V4 background loops
+-- No Stun Loop Logic
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if NoStunSettings.Enabled then
+            pcall(function()
+                local char = localPlayer.Character
+                if char then
+                    if char:FindFirstChild("Stun") then char.Stun.Value = 0 end
+                    if char:FindFirstChild("Busy") then char.Busy.Value = false end
+                end
+            end)
+        end
+    end
+end)
+
+-- Auto V3 / V4 Loop
 task.spawn(function()
     while true do
         task.wait(1)
         pcall(function()
-            if PvPStates.AutoV3 then
-                ReplicatedStorage.Remotes.CommF_:InvokeServer("ActivateAbility")
-            end
-            if RaidStates.AutoV4 then
-                ReplicatedStorage.Remotes.CommF_:InvokeServer("Awakening")
+            if PvPStates.AutoV3 or RaidStates.AutoV4 then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
+                task.wait(0.1)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
+                
+                if ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommE_") then
+                    ReplicatedStorage.Remotes.CommE_:FireServer("ActivateAbility")
+                end
             end
         end)
     end
 end)
 
--- Raid Automation Loop (Smooth Flying, Hovering, & Fast Attack Integration)
+-- Advanced Raid Automation Script
 local currentTween = nil
 local function stopTween()
     if currentTween then
@@ -398,7 +482,6 @@ task.spawn(function()
                 local playerGui = localPlayer:FindFirstChild("PlayerGui")
                 local raidTimer = playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("TopHUDList") and playerGui.Main.TopHUDList:FindFirstChild("RaidTimer")
                 
-                -- 1. Auto Start Raid if timer is hidden/inactive
                 if raidTimer and raidTimer.Visible == false then
                     local function GetBP(itemName)
                         for _, v in ipairs(localPlayer.Backpack:GetChildren()) do
@@ -434,7 +517,6 @@ task.spawn(function()
                     end
                 end
 
-                -- 2. In-Raid Behavior: Hover above mobs and rapidly execute attacks
                 if raidTimer and raidTimer.Visible == true then
                     local enemiesFolder = Workspace:FindFirstChild("Enemies")
                     local targetMobRoot, targetMobHead = nil, nil
@@ -461,15 +543,9 @@ task.spawn(function()
                         myRoot.CFrame = targetMobRoot.CFrame * CFrame.new(0, 15, 0)
                         myRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         myRoot.Anchored = true
-
-                        -- Trigger fast attack continuously while hovering above the mob
                         executeAttack(targetMobRoot, targetMobHead)
                     else
-                        local character = localPlayer.Character
-                        local myRoot = character and character:FindFirstChild("HumanoidRootPart")
                         if myRoot then myRoot.Anchored = false end
-
-                        -- If no enemies are left on this island, move to the next island
                         local locs = Workspace:FindFirstChild("_WorldOrigin") and Workspace._WorldOrigin:FindFirstChild("Locations")
                         if locs then
                             local order = {5, 4, 3, 2, 1}
@@ -495,10 +571,43 @@ task.spawn(function()
     end
 end)
 
--- Menu Toggle Keybind
+-- Keybinds Logic (N for Toggle Menu, B for Complete UI Hide/Unhide)
 UserInputService.InputBegan:Connect(function(input, gp)
-    if input.KeyCode == Keybinds.MenuToggle and not UserInputService:GetFocusedTextBox() then
+    if gp then return end
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+
+    if input.KeyCode == Keybinds.MenuToggle then
         MainFrame.Visible = not MainFrame.Visible
+    elseif input.KeyCode == Keybinds.MenuHide then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    elseif input.KeyCode == Keybinds.NoStunKey then
+        NoStunSettings.Enabled = not NoStunSettings.Enabled
+        btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
+        btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    elseif input.KeyCode == Keybinds.SuperJump and root then
+        root.Velocity = Vector3.new(root.Velocity.X, 350, root.Velocity.Z)
+    elseif input.KeyCode == Keybinds.LongDash and root then
+        local dashVelocity = Instance.new("BodyVelocity")
+        dashVelocity.MaxForce = Vector3.new(100000, 0, 100000)
+        dashVelocity.Velocity = root.CFrame.lookVector * 300
+        dashVelocity.Parent = root
+        game.Debris:AddItem(dashVelocity, 0.2)
+    elseif input.KeyCode == Keybinds.TpEnemy and root then
+        local closestEnemy = nil
+        local shortestDistance = math.huge
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closestEnemy = plr.Character.HumanoidRootPart
+                end
+            end
+        end
+        if closestEnemy then
+            root.CFrame = closestEnemy.CFrame * CFrame.new(0, 0, 3)
+        end
     end
 end)
 
