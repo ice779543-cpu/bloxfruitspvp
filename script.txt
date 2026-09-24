@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Complete Hub (Massive Feature-Rich Script with Auto-Cleanup)
+    Blox Fruits Complete Hub (Massive Feature-Rich Script with Auto-Cleanup & ESP)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -51,7 +51,7 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.05, Distance = 65 }
 local NoStunSettings = { Enabled = false }
-local PvPStates = { AutoV3 = false }
+local PvPStates = { AutoV3 = false, PlayerESP = false }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
 -- Safe Module Loader for Attacks & Remotes
@@ -206,7 +206,7 @@ ContentContainer.Parent = MainFrame
 local TabPvP = Instance.new("ScrollingFrame")
 TabPvP.Size = UDim2.new(1, 0, 1, 0)
 TabPvP.BackgroundTransparency = 1
-TabPvP.CanvasSize = UDim2.new(0, 0, 0, 480)
+TabPvP.CanvasSize = UDim2.new(0, 0, 0, 520)
 TabPvP.ScrollBarThickness = 4
 TabPvP.Visible = true
 TabPvP.Parent = ContentContainer
@@ -330,19 +330,20 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
--- POPULATE PvP TAB (Removed the word 'Bind' from every key item name)
+-- POPULATE PvP TAB (ESP Included Back)
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
-local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
-local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
+local btnPlayerESP = createToggleRow(TabPvP, "Player ESP", PvPStates.PlayerESP, 45)
+local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 85)
+local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 125)
 
-createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 125)
-createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 165)
-createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
-createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
-createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
-createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 325)
-createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 365)
-createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 405)
+createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 165)
+createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 205)
+createKeybindRow(TabPvP, "Super Jump", "SuperJump", 245)
+createKeybindRow(TabPvP, "Long Dash", "LongDash", 285)
+createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 325)
+createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 365)
+createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 405)
+createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 445)
 
 -- POPULATE RAID TAB
 local btnAutoFarmRaid = createToggleRow(TabRaid, "Auto Farm Raid", RaidStates.AutoFarmRaid, 5)
@@ -353,6 +354,12 @@ btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+btnPlayerESP.MouseButton1Click:Connect(function()
+    PvPStates.PlayerESP = not PvPStates.PlayerESP
+    btnPlayerESP.Text = PvPStates.PlayerESP and "ON" or "OFF"
+    btnPlayerESP.TextColor3 = PvPStates.PlayerESP and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnNoStun.MouseButton1Click:Connect(function()
@@ -380,6 +387,45 @@ btnAutoV4.MouseButton1Click:Connect(function()
 end)
 
 -- [[ ADVANCED BACKGROUND LOGIC & AUTOMATION ]] --
+
+-- Player ESP Logic
+local espFolder = Instance.new("Folder")
+espFolder.Name = "PlayerESP"
+espFolder.Parent = CoreGui
+
+RunService.RenderStepped:Connect(function()
+    for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
+    
+    if PvPStates.PlayerESP then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") then
+                local char = plr.Character
+                local root = char.HumanoidRootPart
+                local hum = char.Humanoid
+                
+                if hum.Health > 0 then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "ESP_" .. plr.Name
+                    billboard.Size = UDim2.new(0, 100, 0, 50)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Adornee = root
+                    billboard.Parent = espFolder
+                    
+                    local textLbl = Instance.new("TextLabel")
+                    textLbl.Size = UDim2.new(1, 0, 1, 0)
+                    textLbl.BackgroundTransparency = 1
+                    textLbl.Font = Enum.Font.SourceSansBold
+                    textLbl.TextSize = 13
+                    textLbl.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    textLbl.TextStrokeTransparency = 0.5
+                    textLbl.Text = string.Format("%s\n[%dHP]", plr.Name, math.floor(hum.Health))
+                    textLbl.Parent = billboard
+                end
+            end
+        end
+    end
+end)
 
 -- Fast Attack Loop (Players & Mobs)
 task.spawn(function()
@@ -571,7 +617,7 @@ task.spawn(function()
     end
 end)
 
--- Keybinds Logic (N for Toggle Menu, B for Complete UI Hide/Unhide)
+-- Keybinds Logic
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local char = localPlayer.Character
