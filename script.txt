@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Fully Repaired ESP, Team Colors, Player Camlock & Manual Save)
+    Blox Fruits Hub (Working Player & NPC Camlock + No Health Bar ESP + Fixed Long Dash)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,27 +9,35 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- Aggressive Cleanup: Wipe out all previous instances so reloading never stacks UIs
-local oldUINames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", "StandalonePlayerESP", "AlwaysActivePlayerESP"}
-for _, v in ipairs(CoreGui:GetChildren()) do
-    for _, name in ipairs(oldUINames) do
-        if v.Name == name then v:Destroy() end
+-- FORCE-NUKE CLEANUP
+local function nukeOldUIs()
+    local targetNames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", "StandalonePlayerESP", "AlwaysActivePlayerESP"}
+    for _, v in ipairs(CoreGui:GetChildren()) do
+        for _, name in ipairs(targetNames) do
+            if v.Name == name or v.Name:find("BloxFruit") then
+                pcall(function() v:Destroy() end)
+            end
+        end
     end
-end
-if localPlayer:FindFirstChild("PlayerGui") then
-    for _, v in ipairs(localPlayer.PlayerGui:GetChildren()) do
-        for _, name in ipairs(oldUINames) do
-            if v.Name == name then v:Destroy() end
+    if localPlayer:FindFirstChild("PlayerGui") then
+        for _, v in ipairs(localPlayer.PlayerGui:GetChildren()) do
+            for _, name in ipairs(targetNames) do
+                if v.Name == name or v.Name:find("BloxFruit") then
+                    pcall(function() v:Destroy() end)
+                end
+            end
         end
     end
 end
+
+nukeOldUIs()
+task.wait(0.1)
 
 -- Default Keybinds Table
 local Keybinds = {
@@ -47,34 +55,24 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.12, Distance = 65 }
 local NoStunSettings = { Enabled = false }
-local PvPStates = { AutoV3 = false, CamlockTarget = nil }
+local PvPStates = { AutoV3 = false, PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
--- Dynamic and Safe Remote Finder
+-- Remote Finders
 local function getRegisterAttack()
-    local success, res = pcall(function()
-        return ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
-    end)
+    local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
     if success and res then return res end
-    
     for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v.Name == "RegisterAttack" or v.Name == "RE/RegisterAttack" then
-            return v
-        end
+        if v.Name == "RegisterAttack" or v.Name == "RE/RegisterAttack" then return v end
     end
     return nil
 end
 
 local function getRegisterHit()
-    local success, res = pcall(function()
-        return ReplicatedStorage.Modules.Net["RE/RegisterHit"]
-    end)
+    local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterHit"] end)
     if success and res then return res end
-    
     for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if v.Name == "RegisterHit" or v.Name == "RE/RegisterHit" then
-            return v
-        end
+        if v.Name == "RegisterHit" or v.Name == "RE/RegisterHit" then return v end
     end
     return nil
 end
@@ -82,27 +80,19 @@ end
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
-    
     local equippedWeapon = char:FindFirstChildOfClass("Tool")
     if equippedWeapon then
         pcall(function()
-            local attackRemote = equippedWeapon:FindFirstChild("LeftClickRemote") 
-                or equippedWeapon:FindFirstChild("ToolAttack") 
-                or equippedWeapon:FindFirstChild("AttackRemote")
-                
+            local attackRemote = equippedWeapon:FindFirstChild("LeftClickRemote") or equippedWeapon:FindFirstChild("ToolAttack") or equippedWeapon:FindFirstChild("AttackRemote")
             if attackRemote and typeof(attackRemote.FireServer) == "function" and targetRoot then
                 local direction = (targetRoot.Position - char:GetPivot().Position).Unit
                 attackRemote:FireServer(direction, 1)
             end
         end)
     end
-    
     pcall(function()
         local regAttack = getRegisterAttack()
-        if regAttack and typeof(regAttack.FireServer) == "function" then
-            regAttack:FireServer(0)
-        end
-        
+        if regAttack and typeof(regAttack.FireServer) == "function" then regAttack:FireServer(0) end
         local regHit = getRegisterHit()
         if regHit and typeof(regHit.FireServer) == "function" and targetHead then
             regHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
@@ -130,7 +120,7 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Main UI Setup
+-- UI Layout Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -146,7 +136,6 @@ OpenButton.Font = Enum.Font.SourceSansBold
 OpenButton.Text = "Toggle Menu [N]"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
-
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 6)
 
 local frameWidth, frameHeight = 500, 450
@@ -158,7 +147,6 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Visible = true 
 MainFrame.Parent = ScreenGui
-
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local TitleLabel = Instance.new("TextLabel")
@@ -170,7 +158,6 @@ TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.Text = "  Blox Fruits Hub"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
-
 Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
 
 local Sidebar = Instance.new("Frame")
@@ -328,9 +315,9 @@ end
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
+local btnPlayerCam = createToggleRow(TabPvP, "Player Camlock", PvPStates.PlayerCamActive, 125)
+local btnNpcCam = createToggleRow(TabPvP, "NPC Camlock", PvPStates.NpcCamActive, 165)
 
-createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 125)
-createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 165)
 createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
 createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
 createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
@@ -338,7 +325,7 @@ createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 325)
 createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 365)
 createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 405)
 
--- Manual Save Config Row at the bottom of PvP Tab
+-- Save Config Row
 local SaveRow = Instance.new("Frame")
 SaveRow.Size = UDim2.new(1, 0, 0, 34)
 SaveRow.Position = UDim2.new(0, 0, 0, 445)
@@ -379,6 +366,7 @@ end)
 local btnAutoFarmRaid = createToggleRow(TabRaid, "Auto Farm Raid", RaidStates.AutoFarmRaid, 5)
 local btnAutoV4 = createToggleRow(TabRaid, "Auto V4", RaidStates.AutoV4, 45)
 
+-- UI Toggle Event Handlers
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
@@ -397,6 +385,22 @@ btnAutoV3.MouseButton1Click:Connect(function()
     btnAutoV3.TextColor3 = PvPStates.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
+btnPlayerCam.MouseButton1Click:Connect(function()
+    PvPStates.PlayerCamActive = not PvPStates.PlayerCamActive
+    if PvPStates.PlayerCamActive then PvPStates.NpcCamActive = false btnNpcCam.Text = "OFF" btnNpcCam.TextColor3 = Color3.fromRGB(255, 50, 50) end
+    btnPlayerCam.Text = PvPStates.PlayerCamActive and "ON" or "OFF"
+    btnPlayerCam.TextColor3 = PvPStates.PlayerCamActive and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    PvPStates.LockedTarget = nil
+end)
+
+btnNpcCam.MouseButton1Click:Connect(function()
+    PvPStates.NpcCamActive = not PvPStates.NpcCamActive
+    if PvPStates.NpcCamActive then PvPStates.PlayerCamActive = false btnPlayerCam.Text = "OFF" btnPlayerCam.TextColor3 = Color3.fromRGB(255, 50, 50) end
+    btnNpcCam.Text = PvPStates.NpcCamActive and "ON" or "OFF"
+    btnNpcCam.TextColor3 = PvPStates.NpcCamActive and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    PvPStates.LockedTarget = nil
+end)
+
 btnAutoFarmRaid.MouseButton1Click:Connect(function()
     RaidStates.AutoFarmRaid = not RaidStates.AutoFarmRaid
     btnAutoFarmRaid.Text = RaidStates.AutoFarmRaid and "ON" or "OFF"
@@ -409,7 +413,7 @@ btnAutoV4.MouseButton1Click:Connect(function()
     btnAutoV4.TextColor3 = RaidStates.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- [[ FIXED PERSISTENT ESP SYSTEM (Pirates = Red, Marines = Blue) ]] --
+-- ESP SYSTEM (No Health Bar)
 local espFolder = CoreGui:FindFirstChild("AlwaysActivePlayerESP")
 if not espFolder then
     espFolder = Instance.new("Folder")
@@ -417,76 +421,92 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
+-- Function to find closest available Target for Camlock
+local function getClosestTarget(isNpc)
+    local myChar = localPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local closestTarget = nil
+    local shortestDist = math.huge
+
+    if isNpc then
+        local enemiesFolder = Workspace:FindFirstChild("Enemies")
+        if enemiesFolder then
+            for _, mob in ipairs(enemiesFolder:GetChildren()) do
+                local root = mob:FindFirstChild("HumanoidRootPart")
+                local hum = mob:FindFirstChild("Humanoid")
+                if root and hum and hum.Health > 0 then
+                    local dist = (root.Position - myRoot.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestTarget = root
+                    end
+                end
+            end
+        end
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer and plr.Character then
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                local hum = plr.Character:FindFirstChild("Humanoid")
+                if root and hum and hum.Health > 0 then
+                    local dist = (root.Position - myRoot.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestTarget = root
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
 RunService.RenderStepped:Connect(function()
+    -- Render ESP Updates
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= localPlayer then
             local char = plr.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChild("Humanoid")
-            
             local existingEsp = espFolder:FindFirstChild("ESP_" .. plr.Name)
             
             if char and root and hum and hum.Health > 0 then
                 local playerLevel = "1"
                 local stats = plr:FindFirstChild("Data") or plr:FindFirstChild("leaderstats")
-                if stats and stats:FindFirstChild("Level") then
-                    playerLevel = tostring(stats.Level.Value)
-                end
+                if stats and stats:FindFirstChild("Level") then playerLevel = tostring(stats.Level.Value) end
 
                 local espColor = Color3.fromRGB(255, 50, 50)
                 if plr.Team then
                     local tName = string.lower(plr.Team.Name)
-                    if string.find(tName, "marine") then
-                        espColor = Color3.fromRGB(50, 150, 255)
-                    end
+                    if string.find(tName, "marine") then espColor = Color3.fromRGB(50, 150, 255) end
                 end
 
                 local billboard = existingEsp
                 if not billboard then
                     billboard = Instance.new("BillboardGui")
                     billboard.Name = "ESP_" .. plr.Name
-                    billboard.Size = UDim2.new(0, 150, 0, 65)
-                    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+                    billboard.Size = UDim2.new(0, 150, 0, 40)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
                     billboard.AlwaysOnTop = true
                     billboard.Parent = espFolder
                     
                     local textLbl = Instance.new("TextLabel")
                     textLbl.Name = "TextInfo"
-                    textLbl.Size = UDim2.new(1, 0, 0.6, 0)
+                    textLbl.Size = UDim2.new(1, 0, 1, 0)
                     textLbl.BackgroundTransparency = 1
                     textLbl.Font = Enum.Font.SourceSansBold
                     textLbl.TextSize = 13
                     textLbl.TextStrokeTransparency = 0.2
                     textLbl.Parent = billboard
-
-                    local bgBar = Instance.new("Frame")
-                    bgBar.Name = "BgBar"
-                    bgBar.Size = UDim2.new(1, 0, 0, 6)
-                    bgBar.Position = UDim2.new(0, 0, 0.68, 0)
-                    bgBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                    bgBar.BorderSizePixel = 0
-                    bgBar.Parent = billboard
-                    Instance.new("UICorner", bgBar).CornerRadius = UDim.new(1, 0)
-
-                    local fillBar = Instance.new("Frame")
-                    fillBar.Name = "FillBar"
-                    fillBar.Size = UDim2.new(1, 0, 1, 0)
-                    fillBar.BorderSizePixel = 0
-                    fillBar.Parent = bgBar
-                    Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
                 end
 
                 billboard.Adornee = root
                 local textLbl = billboard:FindFirstChild("TextInfo")
                 if textLbl then
                     textLbl.TextColor3 = espColor
-                    textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
-                end
-
-                local fillBar = billboard:FindFirstChild("BgBar") and billboard.BgBar:FindFirstChild("FillBar")
-                if fillBar then
-                    fillBar.BackgroundColor3 = espColor
-                    fillBar.Size = UDim2.new(math.clamp(hum.Health / hum.MaxHealth, 0, 1), 0, 1, 0)
+                    textLbl.Text = string.format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
                 end
             else
                 if existingEsp then existingEsp:Destroy() end
@@ -494,29 +514,31 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Fully Repaired Camlock Rotation Handler
-    if PvPStates.CamlockTarget and PvPStates.CamlockTarget.Character then
-        local targetRoot = PvPStates.CamlockTarget.Character:FindFirstChild("HumanoidRootPart")
-        local myChar = localPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        
-        if targetRoot and myRoot then
-            local currentPos = camera.CFrame.Position
-            camera.CFrame = CFrame.new(currentPos, targetRoot.Position)
-        else
-            PvPStates.CamlockTarget = nil
+    -- Camlock Tracking Execution
+    if PvPStates.PlayerCamActive then
+        if not PvPStates.LockedTarget or not PvPStates.LockedTarget.Parent or PvPStates.LockedTarget.Parent:FindFirstChild("Humanoid").Health <= 0 then
+            PvPStates.LockedTarget = getClosestTarget(false)
+        end
+        if PvPStates.LockedTarget then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, PvPStates.LockedTarget.Position)
+        end
+    elseif PvPStates.NpcCamActive then
+        if not PvPStates.LockedTarget or not PvPStates.LockedTarget.Parent or PvPStates.LockedTarget.Parent:FindFirstChild("Humanoid").Health <= 0 then
+            PvPStates.LockedTarget = getClosestTarget(true)
+        end
+        if PvPStates.LockedTarget then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, PvPStates.LockedTarget.Position)
         end
     end
 end)
 
--- THROTTLED FAST ATTACK LOOP
+-- Background Loops
 task.spawn(function()
     while true do
         if FastAttackSettings.AutoClick then
             local char = localPlayer.Character
             if char and char:FindFirstChildOfClass("Tool") then
                 local myRoot = char:FindFirstChild("HumanoidRootPart")
-                
                 for _, plr in ipairs(Players:GetPlayers()) do
                     if plr ~= localPlayer and plr.Character then
                         local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -545,7 +567,6 @@ task.spawn(function()
     end
 end)
 
--- No Stun Loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -561,7 +582,6 @@ task.spawn(function()
     end
 end)
 
--- Auto V3 / V4 Loop
 task.spawn(function()
     while true do
         task.wait(1)
@@ -570,7 +590,6 @@ task.spawn(function()
                 VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
                 task.wait(0.1)
                 VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
-                
                 if ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommE_") then
                     ReplicatedStorage.Remotes.CommE_:FireServer("ActivateAbility")
                 end
@@ -579,110 +598,6 @@ task.spawn(function()
     end
 end)
 
--- Raid Automation Script
-local currentTween = nil
-local function stopTween()
-    if currentTween then
-        currentTween:Cancel()
-        currentTween = nil
-    end
-end
-
-local function smoothFlyTo(targetCFrame, speed)
-    local char = localPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    stopTween()
-    local distance = (root.Position - targetCFrame.Position).Magnitude
-    local timeTaken = distance / (speed or 250)
-    
-    currentTween = TweenService:Create(root, TweenInfo.new(timeTaken, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
-    currentTween:Play()
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.2)
-        pcall(function()
-            if RaidStates.AutoFarmRaid then
-                local playerGui = localPlayer:FindFirstChild("PlayerGui")
-                local raidTimer = playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("TopHUDList") and playerGui.Main.TopHUDList:FindFirstChild("RaidTimer")
-                
-                if raidTimer and raidTimer.Visible == false then
-                    local function GetBP(itemName)
-                        for _, v in ipairs(localPlayer.Backpack:GetChildren()) do
-                            if v.Name == itemName then return v end
-                        end
-                        if localPlayer.Character and localPlayer.Character:FindFirstChild(itemName) then
-                            return localPlayer.Character[itemName]
-                        end
-                        return nil
-                    end
-
-                    if GetBP("Special Microchip") then
-                        local World2 = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("CircleIsland")
-                        if World2 then
-                            smoothFlyTo(CFrame.new(-6438.73535, 250.645355, -4501.50684), 300)
-                            task.wait(1)
-                            local btn = Workspace.Map.CircleIsland:FindFirstChild("RaidSummon2")
-                            if btn and btn:FindFirstChild("Button") and btn.Button:FindFirstChild("Main") and btn.Button.Main:FindFirstChild("ClickDetector") then
-                                fireclickdetector(btn.Button.Main.ClickDetector)
-                            end
-                        else
-                            pcall(function()
-                                ReplicatedStorage.Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(-5097.93164, 316.447021, -3142.66602))
-                            end)
-                            task.wait(0.5)
-                            smoothFlyTo(CFrame.new(-5033.50879, 315.014252, -2947.77539), 300)
-                            local boatCastle = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Boat Castle")
-                            if boatCastle and boatCastle:FindFirstChild("RaidSummon2") then
-                                local clickDet = boatCastle.RaidSummon2:FindFirstChild("Button") and boatCastle.RaidSummon2.Button:FindFirstChild("Main") and boatCastle.RaidSummon2.Button.Main:FindFirstChild("ClickDetector")
-                                if clickDet then fireclickdetector(clickDet) end
-                            end
-                        end
-                    end
-                end
-
-                if raidTimer and raidTimer.Visible == true then
-                    local enemiesFolder = Workspace:FindFirstChild("Enemies")
-                    local targetMobRoot, targetMobHead = nil, nil
-                    
-                    if enemiesFolder then
-                        for _, mob in pairs(enemiesFolder:GetChildren()) do
-                            local hum = mob:FindFirstChild("Humanoid")
-                            local root = mob:FindFirstChild("HumanoidRootPart")
-                            local head = mob:FindFirstChild("Head")
-                            if hum and root and head and hum.Health > 0 then
-                                targetMobRoot = root
-                                targetMobHead = head
-                                break
-                            end
-                        end
-                    end
-
-                    local character = localPlayer.Character
-                    local myRoot = character and character:FindFirstChild("HumanoidRootPart")
-
-                    if targetMobRoot and targetMobHead and myRoot then
-                        smoothFlyTo(targetMobRoot.CFrame * CFrame.new(0, 12, 0), 280)
-                        executeAttack(targetMobRoot, targetMobHead)
-                    else
-                        stopTween()
-                        if myRoot then myRoot.Anchored = false end
-                    end
-                else
-                    stopTween()
-                    local character = localPlayer.Character
-                    local myRoot = character and character:FindFirstChild("HumanoidRootPart")
-                    if myRoot then myRoot.Anchored = false end
-                end
-            end
-        end)
-    end
-end)
-
--- Keybinds & Repaired Logic
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local char = localPlayer.Character
@@ -700,39 +615,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
     elseif input.KeyCode == Keybinds.LongDash and root then
         local lookVec = camera.CFrame.LookVector
-        root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 350, root.AssemblyLinearVelocity.Y, lookVec.Z * 350)
-    elseif input.KeyCode == Keybinds.PlayerCam then
-        if PvPStates.CamlockTarget then
-            PvPStates.CamlockTarget = nil
-        else
-            local closestPlayer = nil
-            local shortestDist = math.huge
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestPlayer = plr
-                    end
-                end
-            end
-            PvPStates.CamlockTarget = closestPlayer
-        end
-    elseif input.KeyCode == Keybinds.TpEnemy and root then
-        local closestEnemy = nil
-        local shortestDistance = math.huge
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closestEnemy = plr.Character.HumanoidRootPart
-                end
-            end
-        end
-        if closestEnemy then
-            root.CFrame = closestEnemy.CFrame * CFrame.new(0, 0, 3)
-        end
+        root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 350, 0, lookVec.Z * 350)
     end
 end)
 
