@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Working Player & NPC Camlock + No Health Bar ESP + Fixed Long Dash)
+    Blox Fruits Hub (Player & NPC Camlock Keybinds Added)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -39,7 +39,7 @@ end
 nukeOldUIs()
 task.wait(0.1)
 
--- Default Keybinds Table
+-- Default Keybinds Table (PlayerCam & NpcCam included)
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -48,7 +48,7 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     TpAlly = Enum.KeyCode.U,
     NoStunKey = Enum.KeyCode.J,
-    MenuToggle = Enum.KeyCode.N,
+    MenuToggle = Enum.KeyCode.M,
     MenuHide = Enum.KeyCode.B
 }
 
@@ -133,12 +133,12 @@ OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
 OpenButton.TextSize = 15
 OpenButton.Font = Enum.Font.SourceSansBold
-OpenButton.Text = "Toggle Menu [N]"
+OpenButton.Text = "Toggle Menu [M]"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 6)
 
-local frameWidth, frameHeight = 500, 450
+local frameWidth, frameHeight = 500, 480
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -frameWidth/2, 0.5, -frameHeight/2)
@@ -196,7 +196,7 @@ ContentContainer.Parent = MainFrame
 local TabPvP = Instance.new("ScrollingFrame")
 TabPvP.Size = UDim2.new(1, 0, 1, 0)
 TabPvP.BackgroundTransparency = 1
-TabPvP.CanvasSize = UDim2.new(0, 0, 0, 500)
+TabPvP.CanvasSize = UDim2.new(0, 0, 0, 530)
 TabPvP.ScrollBarThickness = 4
 TabPvP.Visible = true
 TabPvP.Parent = ContentContainer
@@ -315,9 +315,10 @@ end
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
 local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
-local btnPlayerCam = createToggleRow(TabPvP, "Player Camlock", PvPStates.PlayerCamActive, 125)
-local btnNpcCam = createToggleRow(TabPvP, "NPC Camlock", PvPStates.NpcCamActive, 165)
 
+-- KEYBIND ROWS FOR CAMLOCKS
+createKeybindRow(TabPvP, "Player Camlock", "PlayerCam", 125)
+createKeybindRow(TabPvP, "NPC Camlock", "NpcCam", 165)
 createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
 createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
 createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
@@ -383,22 +384,6 @@ btnAutoV3.MouseButton1Click:Connect(function()
     PvPStates.AutoV3 = not PvPStates.AutoV3
     btnAutoV3.Text = PvPStates.AutoV3 and "ON" or "OFF"
     btnAutoV3.TextColor3 = PvPStates.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-end)
-
-btnPlayerCam.MouseButton1Click:Connect(function()
-    PvPStates.PlayerCamActive = not PvPStates.PlayerCamActive
-    if PvPStates.PlayerCamActive then PvPStates.NpcCamActive = false btnNpcCam.Text = "OFF" btnNpcCam.TextColor3 = Color3.fromRGB(255, 50, 50) end
-    btnPlayerCam.Text = PvPStates.PlayerCamActive and "ON" or "OFF"
-    btnPlayerCam.TextColor3 = PvPStates.PlayerCamActive and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    PvPStates.LockedTarget = nil
-end)
-
-btnNpcCam.MouseButton1Click:Connect(function()
-    PvPStates.NpcCamActive = not PvPStates.NpcCamActive
-    if PvPStates.NpcCamActive then PvPStates.PlayerCamActive = false btnPlayerCam.Text = "OFF" btnPlayerCam.TextColor3 = Color3.fromRGB(255, 50, 50) end
-    btnNpcCam.Text = PvPStates.NpcCamActive and "ON" or "OFF"
-    btnNpcCam.TextColor3 = PvPStates.NpcCamActive and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    PvPStates.LockedTarget = nil
 end)
 
 btnAutoFarmRaid.MouseButton1Click:Connect(function()
@@ -607,6 +592,14 @@ UserInputService.InputBegan:Connect(function(input, gp)
         MainFrame.Visible = not MainFrame.Visible
     elseif input.KeyCode == Keybinds.MenuHide then
         ScreenGui.Enabled = not ScreenGui.Enabled
+    elseif input.KeyCode == Keybinds.PlayerCam then
+        PvPStates.PlayerCamActive = not PvPStates.PlayerCamActive
+        if PvPStates.PlayerCamActive then PvPStates.NpcCamActive = false end
+        PvPStates.LockedTarget = nil
+    elseif input.KeyCode == Keybinds.NpcCam then
+        PvPStates.NpcCamActive = not PvPStates.NpcCamActive
+        if PvPStates.NpcCamActive then PvPStates.PlayerCamActive = false end
+        PvPStates.LockedTarget = nil
     elseif input.KeyCode == Keybinds.NoStunKey then
         NoStunSettings.Enabled = not NoStunSettings.Enabled
         btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
