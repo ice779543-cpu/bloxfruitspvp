@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits (ESP Always Active, Fully Patched Fast Attack & Smooth Flight Raid Fix)
+    Blox Fruits Hub (Fixed Team ESP Colors & Repaired Camlock / Long Dash Keybinds)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -47,10 +47,10 @@ local Keybinds = {
 -- Settings States
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.12, Distance = 65 }
 local NoStunSettings = { Enabled = false }
-local PvPStates = { AutoV3 = false }
+local PvPStates = { AutoV3 = false, CamlockTarget = nil }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
--- Dynamic and Safe Remote Finder (Prevents nil errors if Blox Fruits updates paths)
+-- Dynamic and Safe Remote Finder
 local function getRegisterAttack()
     local success, res = pcall(function()
         return ReplicatedStorage.Modules.Net["RE/RegisterAttack"]
@@ -79,7 +79,6 @@ local function getRegisterHit()
     return nil
 end
 
--- Fully Safed Universal Fast Attack Function
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
@@ -111,7 +110,6 @@ local function executeAttack(targetRoot, targetHead)
     end)
 end
 
--- Save / Load Functions
 local function saveKeybinds()
     if writefile and HttpService then
         local encodedTable = {}
@@ -132,7 +130,7 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Main UI Window Setup
+-- Main UI Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -374,7 +372,7 @@ btnAutoV4.MouseButton1Click:Connect(function()
     btnAutoV4.TextColor3 = RaidStates.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- [[ PERMANENT ALWAYS-ACTIVE ESP LOGIC ]] --
+-- [[ ESP LOGIC WITH CORRECTED TEAM COLORS (Pirates = Red, Marines = Blue) ]] --
 local espFolder = Instance.new("Folder")
 espFolder.Name = "AlwaysActivePlayerESP"
 espFolder.Parent = CoreGui
@@ -395,11 +393,12 @@ RunService.RenderStepped:Connect(function()
                     playerLevel = tostring(stats.Level.Value)
                 end
 
-                local espColor = Color3.fromRGB(255, 40, 40)
+                -- Correct team coloring: Marine = Blue, Pirate = Red
+                local espColor = Color3.fromRGB(255, 50, 50) -- Default Red for Pirates
                 if plr.Team then
                     local tName = string.lower(plr.Team.Name)
                     if string.find(tName, "marine") then
-                        espColor = Color3.fromRGB(40, 140, 255)
+                        espColor = Color3.fromRGB(50, 150, 255) -- Blue for Marines
                     end
                 end
 
@@ -440,6 +439,12 @@ RunService.RenderStepped:Connect(function()
                 Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
             end
         end
+    end
+    
+    -- Camlock Loop Handler
+    if PvPStates.CamlockTarget and PvPStates.CamlockTarget.Character and PvPStates.CamlockTarget.Character:FindFirstChild("HumanoidRootPart") then
+        local targetRoot = PvPStates.CamlockTarget.Character.HumanoidRootPart
+        camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
     end
 end)
 
@@ -616,7 +621,7 @@ task.spawn(function()
     end
 end)
 
--- Keybinds Logic
+-- Fixed Keybinds & Camlock/Dash Logic
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local char = localPlayer.Character
@@ -631,13 +636,29 @@ UserInputService.InputBegan:Connect(function(input, gp)
         btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
         btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
     elseif input.KeyCode == Keybinds.SuperJump and root then
-        root.Velocity = Vector3.new(root.Velocity.X, 350, root.Velocity.Z)
+        root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
     elseif input.KeyCode == Keybinds.LongDash and root then
-        local dashVelocity = Instance.new("BodyVelocity")
-        dashVelocity.MaxForce = Vector3.new(100000, 0, 100000)
-        dashVelocity.Velocity = root.CFrame.lookVector * 300
-        dashVelocity.Parent = root
-        game.Debris:AddItem(dashVelocity, 0.2)
+        -- Repaired Long Dash implementation utilizing updated AssemblyLinearVelocity physics safely
+        local lookVec = camera.CFrame.LookVector
+        root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 350, root.AssemblyLinearVelocity.Y, lookVec.Z * 350)
+    elseif input.KeyCode == Keybinds.PlayerCam then
+        -- Repaired Player Camlock (Toggles locking onto the closest player)
+        if PvPStates.CamlockTarget then
+            PvPStates.CamlockTarget = nil
+        else
+            local closestPlayer = nil
+            local shortestDist = math.huge
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestPlayer = plr
+                    end
+                end
+            end
+            PvPStates.CamlockTarget = closestPlayer
+        end
     elseif input.KeyCode == Keybinds.TpEnemy and root then
         local closestEnemy = nil
         local shortestDistance = math.huge
