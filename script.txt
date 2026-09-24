@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Fixed Team ESP Colors & Repaired Camlock / Long Dash Keybinds)
+    Blox Fruits Hub (Fully Repaired ESP, Team Colors, Player Camlock & Manual Save)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -209,7 +209,7 @@ ContentContainer.Parent = MainFrame
 local TabPvP = Instance.new("ScrollingFrame")
 TabPvP.Size = UDim2.new(1, 0, 1, 0)
 TabPvP.BackgroundTransparency = 1
-TabPvP.CanvasSize = UDim2.new(0, 0, 0, 520)
+TabPvP.CanvasSize = UDim2.new(0, 0, 0, 500)
 TabPvP.ScrollBarThickness = 4
 TabPvP.Visible = true
 TabPvP.Parent = ContentContainer
@@ -338,6 +338,43 @@ createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 325)
 createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 365)
 createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 405)
 
+-- Manual Save Config Row at the bottom of PvP Tab
+local SaveRow = Instance.new("Frame")
+SaveRow.Size = UDim2.new(1, 0, 0, 34)
+SaveRow.Position = UDim2.new(0, 0, 0, 445)
+SaveRow.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+SaveRow.Parent = TabPvP
+Instance.new("UICorner", SaveRow).CornerRadius = UDim.new(0, 6)
+
+local SaveLabel = Instance.new("TextLabel")
+SaveLabel.Size = UDim2.new(0.5, 0, 1, 0)
+SaveLabel.Position = UDim2.new(0, 10, 0, 0)
+SaveLabel.BackgroundTransparency = 1
+SaveLabel.Font = Enum.Font.SourceSansBold
+SaveLabel.TextSize = 12
+SaveLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+SaveLabel.TextXAlignment = Enum.TextXAlignment.Left
+SaveLabel.Text = "Save Config"
+SaveLabel.Parent = SaveRow
+
+local SaveButton = Instance.new("TextButton")
+SaveButton.Size = UDim2.new(0, 110, 0, 26)
+SaveButton.Position = UDim2.new(1, -115, 0.5, -13)
+SaveButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+SaveButton.Font = Enum.Font.SourceSansBold
+SaveButton.TextSize = 12
+SaveButton.Text = "Save Now"
+SaveButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+SaveButton.Parent = SaveRow
+Instance.new("UICorner", SaveButton).CornerRadius = UDim.new(0, 4)
+
+SaveButton.MouseButton1Click:Connect(function()
+    saveKeybinds()
+    SaveButton.Text = "Saved!"
+    task.wait(1)
+    SaveButton.Text = "Save Now"
+end)
+
 -- POPULATE RAID TAB
 local btnAutoFarmRaid = createToggleRow(TabRaid, "Auto Farm Raid", RaidStates.AutoFarmRaid, 5)
 local btnAutoV4 = createToggleRow(TabRaid, "Auto V4", RaidStates.AutoV4, 45)
@@ -372,79 +409,103 @@ btnAutoV4.MouseButton1Click:Connect(function()
     btnAutoV4.TextColor3 = RaidStates.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- [[ ESP LOGIC WITH CORRECTED TEAM COLORS (Pirates = Red, Marines = Blue) ]] --
-local espFolder = Instance.new("Folder")
-espFolder.Name = "AlwaysActivePlayerESP"
-espFolder.Parent = CoreGui
+-- [[ FIXED PERSISTENT ESP SYSTEM (Pirates = Red, Marines = Blue) ]] --
+local espFolder = CoreGui:FindFirstChild("AlwaysActivePlayerESP")
+if not espFolder then
+    espFolder = Instance.new("Folder")
+    espFolder.Name = "AlwaysActivePlayerESP"
+    espFolder.Parent = CoreGui
+end
 
 RunService.RenderStepped:Connect(function()
-    for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
-    
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") then
+        if plr ~= localPlayer then
             local char = plr.Character
-            local root = char.HumanoidRootPart
-            local hum = char.Humanoid
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChild("Humanoid")
             
-            if hum.Health > 0 then
+            local existingEsp = espFolder:FindFirstChild("ESP_" .. plr.Name)
+            
+            if char and root and hum and hum.Health > 0 then
                 local playerLevel = "1"
                 local stats = plr:FindFirstChild("Data") or plr:FindFirstChild("leaderstats")
                 if stats and stats:FindFirstChild("Level") then
                     playerLevel = tostring(stats.Level.Value)
                 end
 
-                -- Correct team coloring: Marine = Blue, Pirate = Red
-                local espColor = Color3.fromRGB(255, 50, 50) -- Default Red for Pirates
+                local espColor = Color3.fromRGB(255, 50, 50)
                 if plr.Team then
                     local tName = string.lower(plr.Team.Name)
                     if string.find(tName, "marine") then
-                        espColor = Color3.fromRGB(50, 150, 255) -- Blue for Marines
+                        espColor = Color3.fromRGB(50, 150, 255)
                     end
                 end
 
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "ESP_" .. plr.Name
-                billboard.Size = UDim2.new(0, 150, 0, 65)
-                billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-                billboard.AlwaysOnTop = true
+                local billboard = existingEsp
+                if not billboard then
+                    billboard = Instance.new("BillboardGui")
+                    billboard.Name = "ESP_" .. plr.Name
+                    billboard.Size = UDim2.new(0, 150, 0, 65)
+                    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = espFolder
+                    
+                    local textLbl = Instance.new("TextLabel")
+                    textLbl.Name = "TextInfo"
+                    textLbl.Size = UDim2.new(1, 0, 0.6, 0)
+                    textLbl.BackgroundTransparency = 1
+                    textLbl.Font = Enum.Font.SourceSansBold
+                    textLbl.TextSize = 13
+                    textLbl.TextStrokeTransparency = 0.2
+                    textLbl.Parent = billboard
+
+                    local bgBar = Instance.new("Frame")
+                    bgBar.Name = "BgBar"
+                    bgBar.Size = UDim2.new(1, 0, 0, 6)
+                    bgBar.Position = UDim2.new(0, 0, 0.68, 0)
+                    bgBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                    bgBar.BorderSizePixel = 0
+                    bgBar.Parent = billboard
+                    Instance.new("UICorner", bgBar).CornerRadius = UDim.new(1, 0)
+
+                    local fillBar = Instance.new("Frame")
+                    fillBar.Name = "FillBar"
+                    fillBar.Size = UDim2.new(1, 0, 1, 0)
+                    fillBar.BorderSizePixel = 0
+                    fillBar.Parent = bgBar
+                    Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
+                end
+
                 billboard.Adornee = root
-                billboard.Parent = espFolder
-                
-                local textLbl = Instance.new("TextLabel")
-                textLbl.Size = UDim2.new(1, 0, 0.6, 0)
-                textLbl.BackgroundTransparency = 1
-                textLbl.Font = Enum.Font.SourceSansBold
-                textLbl.TextSize = 13
-                textLbl.TextColor3 = espColor
-                textLbl.TextStrokeTransparency = 0.2
-                textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
-                textLbl.Parent = billboard
+                local textLbl = billboard:FindFirstChild("TextInfo")
+                if textLbl then
+                    textLbl.TextColor3 = espColor
+                    textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
+                end
 
-                local bgBar = Instance.new("Frame")
-                bgBar.Size = UDim2.new(1, 0, 0, 6)
-                bgBar.Position = UDim2.new(0, 0, 0.68, 0)
-                bgBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                bgBar.BorderSizePixel = 0
-                bgBar.Parent = billboard
-                
-                Instance.new("UICorner", bgBar).CornerRadius = UDim.new(1, 0)
-
-                local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                local fillBar = Instance.new("Frame")
-                fillBar.Size = UDim2.new(healthPercent, 0, 1, 0)
-                fillBar.BackgroundColor3 = espColor
-                fillBar.BorderSizePixel = 0
-                fillBar.Parent = bgBar
-                
-                Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
+                local fillBar = billboard:FindFirstChild("BgBar") and billboard.BgBar:FindFirstChild("FillBar")
+                if fillBar then
+                    fillBar.BackgroundColor3 = espColor
+                    fillBar.Size = UDim2.new(math.clamp(hum.Health / hum.MaxHealth, 0, 1), 0, 1, 0)
+                end
+            else
+                if existingEsp then existingEsp:Destroy() end
             end
         end
     end
     
-    -- Camlock Loop Handler
-    if PvPStates.CamlockTarget and PvPStates.CamlockTarget.Character and PvPStates.CamlockTarget.Character:FindFirstChild("HumanoidRootPart") then
-        local targetRoot = PvPStates.CamlockTarget.Character.HumanoidRootPart
-        camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+    -- Fully Repaired Camlock Rotation Handler
+    if PvPStates.CamlockTarget and PvPStates.CamlockTarget.Character then
+        local targetRoot = PvPStates.CamlockTarget.Character:FindFirstChild("HumanoidRootPart")
+        local myChar = localPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        
+        if targetRoot and myRoot then
+            local currentPos = camera.CFrame.Position
+            camera.CFrame = CFrame.new(currentPos, targetRoot.Position)
+        else
+            PvPStates.CamlockTarget = nil
+        end
     end
 end)
 
@@ -621,7 +682,7 @@ task.spawn(function()
     end
 end)
 
--- Fixed Keybinds & Camlock/Dash Logic
+-- Keybinds & Repaired Logic
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local char = localPlayer.Character
@@ -638,11 +699,9 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Keybinds.SuperJump and root then
         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
     elseif input.KeyCode == Keybinds.LongDash and root then
-        -- Repaired Long Dash implementation utilizing updated AssemblyLinearVelocity physics safely
         local lookVec = camera.CFrame.LookVector
         root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 350, root.AssemblyLinearVelocity.Y, lookVec.Z * 350)
     elseif input.KeyCode == Keybinds.PlayerCam then
-        -- Repaired Player Camlock (Toggles locking onto the closest player)
         if PvPStates.CamlockTarget then
             PvPStates.CamlockTarget = nil
         else
