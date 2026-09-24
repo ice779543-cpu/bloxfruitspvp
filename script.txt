@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits (ESP Always Active, Universal Fast Attack & Smooth Flight Raid Fix)
+    Blox Fruits (ESP Always Active, Fixed Universal Fast Attack & Smooth Flight Raid Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -60,7 +60,7 @@ local Net = Modules and SafeWaitForChild(Modules, "Net")
 local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
 local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
--- Universal Fast Attack Function (Supports multiple weapon/fighting style remotes + global fallback)
+-- Fully Safed Universal Fast Attack Function (Prevents nil call errors)
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
@@ -72,19 +72,21 @@ local function executeAttack(targetRoot, targetHead)
                 or equippedWeapon:FindFirstChild("ToolAttack") 
                 or equippedWeapon:FindFirstChild("AttackRemote")
                 
-            if attackRemote and targetRoot then
+            if attackRemote and typeof(attackRemote.FireServer) == "function" and targetRoot then
                 local direction = (targetRoot.Position - char:GetPivot().Position).Unit
                 attackRemote:FireServer(direction, 1)
             end
         end)
     end
     
-    if RegisterAttack and RegisterHit and targetHead then
-        pcall(function()
+    pcall(function()
+        if RegisterAttack and typeof(RegisterAttack.FireServer) == "function" then
             RegisterAttack:FireServer(0)
+        end
+        if RegisterHit and typeof(RegisterHit.FireServer) == "function" and targetHead then
             RegisterHit:FireServer(targetHead, { {targetHead.Parent, targetHead} })
-        end)
-    end
+        end
+    end)
 end
 
 -- Save / Load Functions
