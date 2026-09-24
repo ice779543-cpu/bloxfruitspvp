@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Complete Hub (Team-Colored ESP: Red for Pirates, Blue for Marines)
+    Blox Fruits Hub (ESP Always Active, Fast Attack Throttled & Raid Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -17,20 +17,16 @@ local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
 -- Aggressive Cleanup: Wipe out all previous instances so reloading never stacks UIs
-local oldUINames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI"}
+local oldUINames = {"KeybindSettingUI", "PvPHUDUI", "PlayerESP", "RaidFarmUI", "StandalonePlayerESP", "AlwaysActivePlayerESP"}
 for _, v in ipairs(CoreGui:GetChildren()) do
     for _, name in ipairs(oldUINames) do
-        if v.Name == name then
-            v:Destroy()
-        end
+        if v.Name == name then v:Destroy() end
     end
 end
 if localPlayer:FindFirstChild("PlayerGui") then
     for _, v in ipairs(localPlayer.PlayerGui:GetChildren()) do
         for _, name in ipairs(oldUINames) do
-            if v.Name == name then
-                v:Destroy()
-            end
+            if v.Name == name then v:Destroy() end
         end
     end
 end
@@ -48,10 +44,10 @@ local Keybinds = {
     MenuHide = Enum.KeyCode.B
 }
 
--- Settings States
-local FastAttackSettings = { AutoClick = false, ClickDelay = 0.05, Distance = 65 }
+-- Settings States (Throttled ClickDelay set safely to 0.12 to prevent raid lockouts)
+local FastAttackSettings = { AutoClick = false, ClickDelay = 0.12, Distance = 65 }
 local NoStunSettings = { Enabled = false }
-local PvPStates = { AutoV3 = false, PlayerESP = false }
+local PvPStates = { AutoV3 = false }
 local RaidStates = { AutoFarmRaid = false, AutoV4 = false }
 
 -- Safe Module Loader for Attacks & Remotes
@@ -64,7 +60,7 @@ local Net = Modules and SafeWaitForChild(Modules, "Net")
 local RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack")
 local RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit")
 
--- Universal Fast Attack (Players & NPCs)
+-- Stable Anti-Spam Attack Function
 local function executeAttack(targetRoot, targetHead)
     local char = localPlayer.Character
     if not char then return end
@@ -109,7 +105,7 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Main UI Window Setup (Centered, Locked, Left-Side Sidebar)
+-- Main UI Window Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -126,11 +122,8 @@ OpenButton.Text = "Toggle Menu [N]"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 6)
-BtnCorner.Parent = OpenButton
+Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 6)
 
--- Main Frame (Locked: Draggable = false, Centered Position)
 local frameWidth, frameHeight = 500, 450
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
@@ -138,30 +131,23 @@ MainFrame.Position = UDim2.new(0.5, -frameWidth/2, 0.5, -frameHeight/2)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = false 
 MainFrame.Visible = true 
 MainFrame.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
-MainCorner.Parent = MainFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Top Title Bar
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 45)
 TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "  Blox Fruit Hub"
+TitleLabel.Text = "  Blox Fruit Hub (Fixed Fast Attack)"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
-TitleCorner.Parent = TitleLabel
+Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
 
--- Sidebar Tab Container (Left Side)
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 130, 1, -55)
 Sidebar.Position = UDim2.new(0, 10, 0, 50)
@@ -176,10 +162,7 @@ TabPvPBtn.TextSize = 13
 TabPvPBtn.TextColor3 = Color3.fromRGB(0, 255, 128)
 TabPvPBtn.Text = "PvP Hub"
 TabPvPBtn.Parent = Sidebar
-
-local TabPvPCorner = Instance.new("UICorner")
-TabPvPCorner.CornerRadius = UDim.new(0, 6)
-TabPvPCorner.Parent = TabPvPBtn
+Instance.new("UICorner", TabPvPBtn).CornerRadius = UDim.new(0, 6)
 
 local TabRaidBtn = Instance.new("TextButton")
 TabRaidBtn.Size = UDim2.new(1, 0, 0, 38)
@@ -190,19 +173,14 @@ TabRaidBtn.TextSize = 13
 TabRaidBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 TabRaidBtn.Text = "Raid"
 TabRaidBtn.Parent = Sidebar
+Instance.new("UICorner", TabRaidBtn).CornerRadius = UDim.new(0, 6)
 
-local TabRaidCorner = Instance.new("UICorner")
-TabRaidCorner.CornerRadius = UDim.new(0, 6)
-TabRaidCorner.Parent = TabRaidBtn
-
--- Content Container (Right Side)
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -155, 1, -55)
 ContentContainer.Position = UDim2.new(0, 145, 0, 50)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
--- PvP Panel
 local TabPvP = Instance.new("ScrollingFrame")
 TabPvP.Size = UDim2.new(1, 0, 1, 0)
 TabPvP.BackgroundTransparency = 1
@@ -211,7 +189,6 @@ TabPvP.ScrollBarThickness = 4
 TabPvP.Visible = true
 TabPvP.Parent = ContentContainer
 
--- Raid Panel
 local TabRaid = Instance.new("ScrollingFrame")
 TabRaid.Size = UDim2.new(1, 0, 1, 0)
 TabRaid.BackgroundTransparency = 1
@@ -220,7 +197,6 @@ TabRaid.ScrollBarThickness = 4
 TabRaid.Visible = false
 TabRaid.Parent = ContentContainer
 
--- Tab Switching Logic
 TabPvPBtn.MouseButton1Click:Connect(function()
     TabPvP.Visible = true
     TabRaid.Visible = false
@@ -239,17 +215,13 @@ TabRaidBtn.MouseButton1Click:Connect(function()
     TabPvPBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 end)
 
--- UI Element Helpers
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, 0, 0, 34)
     Row.Position = UDim2.new(0, 0, 0, yPos)
     Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
     Row.Parent = parentFrame
-
-    local RC = Instance.new("UICorner")
-    RC.CornerRadius = UDim.new(0, 6)
-    RC.Parent = Row
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -271,10 +243,7 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     Button.Text = initialState and "ON" or "OFF"
     Button.TextColor3 = initialState and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
     Button.Parent = Row
-
-    local BC = Instance.new("UICorner")
-    BC.CornerRadius = UDim.new(0, 4)
-    BC.Parent = Button
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
 
     return Button
 end
@@ -332,34 +301,26 @@ end
 
 -- POPULATE PvP TAB
 local btnFastAttack = createToggleRow(TabPvP, "Fast Attack", FastAttackSettings.AutoClick, 5)
-local btnPlayerESP = createToggleRow(TabPvP, "Player ESP", PvPStates.PlayerESP, 45)
-local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 85)
-local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 125)
+local btnNoStun = createToggleRow(TabPvP, "No Stun", NoStunSettings.Enabled, 45)
+local btnAutoV3 = createToggleRow(TabPvP, "Auto V3", PvPStates.AutoV3, 85)
 
-createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 165)
-createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 205)
-createKeybindRow(TabPvP, "Super Jump", "SuperJump", 245)
-createKeybindRow(TabPvP, "Long Dash", "LongDash", 285)
-createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 325)
-createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 365)
-createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 405)
-createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 445)
+createKeybindRow(TabPvP, "Player Cam", "PlayerCam", 125)
+createKeybindRow(TabPvP, "NPC Cam", "NpcCam", 165)
+createKeybindRow(TabPvP, "Super Jump", "SuperJump", 205)
+createKeybindRow(TabPvP, "Long Dash", "LongDash", 245)
+createKeybindRow(TabPvP, "Tp to Enemy", "TpEnemy", 285)
+createKeybindRow(TabPvP, "Tp to Ally", "TpAlly", 325)
+createKeybindRow(TabPvP, "Toggle No Stun", "NoStunKey", 365)
+createKeybindRow(TabPvP, "Hide/Unhide UI", "MenuHide", 405)
 
 -- POPULATE RAID TAB
 local btnAutoFarmRaid = createToggleRow(TabRaid, "Auto Farm Raid", RaidStates.AutoFarmRaid, 5)
 local btnAutoV4 = createToggleRow(TabRaid, "Auto V4", RaidStates.AutoV4, 45)
 
--- Button Logic Links
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-end)
-
-btnPlayerESP.MouseButton1Click:Connect(function()
-    PvPStates.PlayerESP = not PvPStates.PlayerESP
-    btnPlayerESP.Text = PvPStates.PlayerESP and "ON" or "OFF"
-    btnPlayerESP.TextColor3 = PvPStates.PlayerESP and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnNoStun.MouseButton1Click:Connect(function()
@@ -386,87 +347,76 @@ btnAutoV4.MouseButton1Click:Connect(function()
     btnAutoV4.TextColor3 = RaidStates.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
--- [[ ADVANCED BACKGROUND LOGIC & AUTOMATION ]] --
-
--- Player ESP Logic (Name, Level, Health Bar, & Team Color Integration)
+-- [[ PERMANENT ALWAYS-ACTIVE ESP LOGIC ]] --
 local espFolder = Instance.new("Folder")
-espFolder.Name = "PlayerESP"
+espFolder.Name = "AlwaysActivePlayerESP"
 espFolder.Parent = CoreGui
 
 RunService.RenderStepped:Connect(function()
     for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
     
-    if PvPStates.PlayerESP then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") then
-                local char = plr.Character
-                local root = char.HumanoidRootPart
-                local hum = char.Humanoid
-                
-                if hum.Health > 0 then
-                    -- Get Level safely from leaderstats or data folders
-                    local playerLevel = "?"
-                    local stats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Data")
-                    if stats and stats:FindFirstChild("Level") then
-                        playerLevel = tostring(stats.Level.Value)
-                    end
-
-                    -- Determine Team Color (Marine = Blue, Pirate = Red)
-                    local espColor = Color3.fromRGB(255, 50, 50) -- Default Pirate Red
-                    if plr.Team and (plr.Team.Name == "Marine" or plr.Team.Name == "Marines") then
-                        espColor = Color3.fromRGB(50, 150, 255) -- Marine Blue
-                    end
-
-                    -- Billboard Container
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "ESP_" .. plr.Name
-                    billboard.Size = UDim2.new(0, 140, 0, 60)
-                    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-                    billboard.AlwaysOnTop = true
-                    billboard.Adornee = root
-                    billboard.Parent = espFolder
-                    
-                    -- Info Label (Name + Level + HP Number)
-                    local textLbl = Instance.new("TextLabel")
-                    textLbl.Size = UDim2.new(1, 0, 0.6, 0)
-                    textLbl.BackgroundTransparency = 1
-                    textLbl.Font = Enum.Font.SourceSansBold
-                    textLbl.TextSize = 13
-                    textLbl.TextColor3 = espColor
-                    textLbl.TextStrokeTransparency = 0.3
-                    textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
-                    textLbl.Parent = billboard
-
-                    -- Background Health Bar Frame
-                    local bgBar = Instance.new("Frame")
-                    bgBar.Size = UDim2.new(1, 0, 0, 6)
-                    bgBar.Position = UDim2.new(0, 0, 0.7, 0)
-                    bgBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                    bgBar.BorderSizePixel = 0
-                    bgBar.Parent = billboard
-                    
-                    local bgCorner = Instance.new("UICorner")
-                    bgCorner.CornerRadius = UDim.new(1, 0)
-                    bgCorner.Parent = bgBar
-
-                    -- Active Health Fill Bar (Matches Team Color)
-                    local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                    local fillBar = Instance.new("Frame")
-                    fillBar.Size = UDim2.new(healthPercent, 0, 1, 0)
-                    fillBar.BackgroundColor3 = espColor
-                    fillBar.BorderSizePixel = 0
-                    fillBar.Parent = bgBar
-                    
-                    local fillCorner = Instance.new("UICorner")
-                    fillCorner.CornerRadius = UDim.new(1, 0)
-                    fillCorner.Parent = fillBar
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") then
+            local char = plr.Character
+            local root = char.HumanoidRootPart
+            local hum = char.Humanoid
+            
+            if hum.Health > 0 then
+                local playerLevel = "1"
+                local stats = plr:FindFirstChild("Data") or plr:FindFirstChild("leaderstats")
+                if stats and stats:FindFirstChild("Level") then
+                    playerLevel = tostring(stats.Level.Value)
                 end
+
+                local espColor = Color3.fromRGB(255, 40, 40)
+                if plr.Team then
+                    local tName = string.lower(plr.Team.Name)
+                    if string.find(tName, "marine") then
+                        espColor = Color3.fromRGB(40, 140, 255)
+                    end
+                end
+
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ESP_" .. plr.Name
+                billboard.Size = UDim2.new(0, 150, 0, 65)
+                billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.Adornee = root
+                billboard.Parent = espFolder
+                
+                local textLbl = Instance.new("TextLabel")
+                textLbl.Size = UDim2.new(1, 0, 0.6, 0)
+                textLbl.BackgroundTransparency = 1
+                textLbl.Font = Enum.Font.SourceSansBold
+                textLbl.TextSize = 13
+                textLbl.TextColor3 = espColor
+                textLbl.TextStrokeTransparency = 0.2
+                textLbl.Text = string.Format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
+                textLbl.Parent = billboard
+
+                local bgBar = Instance.new("Frame")
+                bgBar.Size = UDim2.new(1, 0, 0, 6)
+                bgBar.Position = UDim2.new(0, 0, 0.68, 0)
+                bgBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                bgBar.BorderSizePixel = 0
+                bgBar.Parent = billboard
+                
+                Instance.new("UICorner", bgBar).CornerRadius = UDim.new(1, 0)
+
+                local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                local fillBar = Instance.new("Frame")
+                fillBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                fillBar.BackgroundColor3 = espColor
+                fillBar.BorderSizePixel = 0
+                fillBar.Parent = bgBar
+                
+                Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
             end
         end
     end
 end)
 
--- Fast Attack Loop (Players & Mobs)
+-- THROTTLED & FIXED FAST ATTACK LOOP (Prevents Server Lockout during Raids)
 task.spawn(function()
     while true do
         if FastAttackSettings.AutoClick then
@@ -474,6 +424,7 @@ task.spawn(function()
             if char and char:FindFirstChildOfClass("Tool") then
                 local myRoot = char:FindFirstChild("HumanoidRootPart")
                 
+                -- Check Players
                 for _, plr in ipairs(Players:GetPlayers()) do
                     if plr ~= localPlayer and plr.Character then
                         local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -485,6 +436,7 @@ task.spawn(function()
                     end
                 end
 
+                -- Check Raid / World Mobs
                 local enemiesFolder = Workspace:FindFirstChild("Enemies")
                 if enemiesFolder then
                     for _, mob in pairs(enemiesFolder:GetChildren()) do
@@ -498,11 +450,11 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(FastAttackSettings.ClickDelay)
+        task.wait(FastAttackSettings.ClickDelay) -- Safe dynamic delay prevents stopping after a few kills
     end
 end)
 
--- No Stun Loop Logic
+-- No Stun Loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -536,7 +488,7 @@ task.spawn(function()
     end
 end)
 
--- Advanced Raid Automation Script
+-- Raid Automation Script
 local currentTween = nil
 local function stopTween()
     if currentTween then
@@ -554,8 +506,7 @@ local function smoothFlyTo(targetCFrame, speed)
     local distance = (root.Position - targetCFrame.Position).Magnitude
     local timeTaken = distance / (speed or 250)
     
-    local tweenInfo = TweenInfo.new(timeTaken, Enum.EasingStyle.Linear)
-    currentTween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+    currentTween = TweenService:Create(root, TweenInfo.new(timeTaken, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
     currentTween:Play()
 end
 
