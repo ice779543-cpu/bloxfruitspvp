@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Enhanced No Stun Anti-Fall Toggle
+    Keybind Settings + Fast Attack, Admin Panel, Anti-Fall Air-Float, & Working No Stun
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -161,9 +161,8 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Absolute Air-Float & Enhanced Anti-Stun / Anti-Fall Loop
-local floatAttachment = nil
-local floatLinearVelocity = nil
+-- Absolute Anti-Fall & Anti-Stun Loop (Fixed Falling Issue)
+local antiFallVelocity = nil
 local antiFallGyro = nil
 
 RunService.Stepped:Connect(function()
@@ -171,8 +170,7 @@ RunService.Stepped:Connect(function()
     local rootPart = char and char:FindFirstChild("HumanoidRootPart")
     
     if not NoStunSettings.Enabled then
-        if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
-        if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+        if antiFallVelocity then antiFallVelocity:Destroy() antiFallVelocity = nil end
         if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
         return
     end
@@ -187,14 +185,14 @@ RunService.Stepped:Connect(function()
             humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
             
             local state = humanoid:GetState()
             if state == Enum.HumanoidStateType.Ragdoll or 
                state == Enum.HumanoidStateType.FallingDown or 
                state == Enum.HumanoidStateType.PlatformStanding or 
                state == Enum.HumanoidStateType.Seated or
-               state == Enum.HumanoidStateType.Physics then
+               state == Enum.HumanoidStateType.Freefall then
                 humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
         end)
@@ -203,12 +201,12 @@ RunService.Stepped:Connect(function()
     if rootPart then
         if rootPart.Anchored then rootPart.Anchored = false end
         
-        -- Prevent tipping over by keeping rootPart rotation locked straight up
+        -- Keep character upright and prevent tipping over
         if not antiFallGyro or antiFallGyro.Parent ~= rootPart then
             if antiFallGyro then antiFallGyro:Destroy() end
             antiFallGyro = Instance.new("BodyGyro")
             antiFallGyro.Name = "AntiFallGyro"
-            antiFallGyro.MaxTorque = Vector3.new(400000, 0, 400000) -- Locks X and Z tilt, keeps Y free for turning
+            antiFallGyro.MaxTorque = Vector3.new(400000, 0, 400000)
             antiFallGyro.P = 20000
             antiFallGyro.CFrame = rootPart.CFrame
             antiFallGyro.Parent = rootPart
@@ -216,31 +214,36 @@ RunService.Stepped:Connect(function()
             antiFallGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z))
         end
 
-        if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
-            if not floatAttachment or floatAttachment.Parent ~= rootPart then
-                if floatAttachment then floatAttachment:Destroy() end
-                if floatLinearVelocity then floatLinearVelocity:Destroy() end
-                
-                floatAttachment = Instance.new("Attachment")
-                floatAttachment.Name = "FloatAttachment"
-                floatAttachment.Parent = rootPart
-                
-                floatLinearVelocity = Instance.new("LinearVelocity")
-                floatLinearVelocity.Name = "AirFloatConstraint"
-                floatLinearVelocity.Attachment0 = floatAttachment
-                floatLinearVelocity.MaxForce = math.huge
-                floatLinearVelocity.VectorVelocity = Vector3.new(0, 0, 0)
-                floatLinearVelocity.Parent = rootPart
+        -- Stop sudden downward falling gravity pulls when no-stun is enabled
+        if humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid.Health > 0) then
+            local currentVel = rootPart.AssemblyLinearVelocity
+            -- If falling down rapidly and not using a custom skill/dash, neutralize vertical drop
+            if currentVel.Y < -5 then
+                if not antiFallVelocity or antiFallVelocity.Parent ~= rootPart then
+                    if antiFallVelocity then antiFallVelocity:Destroy() end
+                    antiFallVelocity = Instance.new("BodyVelocity")
+                    antiFallVelocity.Name = "AntiFallVelocity"
+                    antiFallVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                    antiFallVelocity.Velocity = Vector3.new(0, 0, 0)
+                    antiFallVelocity.Parent = rootPart
+                end
+            else
+                if antiFallVelocity then antiFallVelocity:Destroy() antiFallVelocity = nil end
             end
         else
-            if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
-            if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+            if antiFallVelocity then antiFallVelocity:Destroy() antiFallVelocity = nil end
         end
     end
     
+    -- Clean only ragdoll/stun physics objects so game moves/dashes work completely fine
     for _, child in ipairs(char:GetDescendants()) do
-        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or (child:IsA("LinearVelocity") and child.Name ~= "AirFloatConstraint")) and child.Name ~= "LongDashVelocity" then
+        if child:IsA("BodyPosition") then
             pcall(function() child:Destroy() end)
+        elseif child:IsA("BodyVelocity") and child.Name ~= "LongDashVelocity" and child.Name ~= "AntiFallVelocity" then
+            local nameLower = child.Name:lower()
+            if not nameLower:find("move") and not nameLower:find("skill") and not nameLower:find("dash") and not nameLower:find("ability") then
+                pcall(function() child:Destroy() end)
+            end
         end
     end
 end)
@@ -799,7 +802,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
             localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
         end
-    elseif input.TestCode == Keybinds.TpAlly or input.KeyCode == Keybinds.TpAlly then
+    elseif input.KeyCode == Keybinds.TpAlly then
         local tChar = getClosestAlly()
         if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
             localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
