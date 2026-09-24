@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (ESP Always Active, Fast Attack Throttled & Raid Fix)
+    Blox Fruits (ESP Always Active, Fast Attack Throttled & Smooth Flight Raid Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -142,7 +142,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "  Blox Fruit Hub (Fixed Fast Attack)"
+TitleLabel.Text = "  Blox Fruits"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 
@@ -450,7 +450,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(FastAttackSettings.ClickDelay) -- Safe dynamic delay prevents stopping after a few kills
+        task.wait(FastAttackSettings.ClickDelay)
     end
 end)
 
@@ -488,7 +488,7 @@ task.spawn(function()
     end
 end)
 
--- Raid Automation Script
+-- Raid Automation Script (Smooth Flight instead of Instant Teleportation)
 local currentTween = nil
 local function stopTween()
     if currentTween then
@@ -574,13 +574,11 @@ task.spawn(function()
                     local myRoot = character and character:FindFirstChild("HumanoidRootPart")
 
                     if targetMobRoot and targetMobHead and myRoot then
-                        stopTween()
-                        myRoot.Anchored = false
-                        myRoot.CFrame = targetMobRoot.CFrame * CFrame.new(0, 15, 0)
-                        myRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        myRoot.Anchored = true
+                        -- Smoothly fly toward the active enemy mob instead of teleporting
+                        smoothFlyTo(targetMobRoot.CFrame * CFrame.new(0, 12, 0), 280)
                         executeAttack(targetMobRoot, targetMobHead)
                     else
+                        stopTween()
                         if myRoot then myRoot.Anchored = false end
                         local locs = Workspace:FindFirstChild("_WorldOrigin") and Workspace._WorldOrigin:FindFirstChild("Locations")
                         if locs then
@@ -598,6 +596,7 @@ task.spawn(function()
                         end
                     end
                 else
+                    stopTween()
                     local character = localPlayer.Character
                     local myRoot = character and character:FindFirstChild("HumanoidRootPart")
                     if myRoot then myRoot.Anchored = false end
