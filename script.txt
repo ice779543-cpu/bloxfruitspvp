@@ -1,5 +1,5 @@
 --[[
-    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, Godhuman Z Lock, & Fixed No Stun Toggle
+    Keybind Settings + Fast Attack, Admin Kick Panel, Air-Float, & Enhanced No Stun Anti-Fall Toggle
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -51,10 +51,6 @@ local FastAttackSettings = {
 }
 
 local NoStunSettings = {
-    Enabled = false
-}
-
-local GodhumanZLockSettings = {
     Enabled = false
 }
 
@@ -157,30 +153,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
             isHoldingMove = true
         end
     end
-    
-    -- Godhuman Z Lock Detector
-    if GodhumanZLockSettings.Enabled and input.KeyCode == Enum.KeyCode.Z then
-        local char = localPlayer.Character
-        if char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool and tool.Name:lower():find("godhuman") then
-                local rootPart = char:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    task.spawn(function()
-                        local savedCFrame = rootPart.CFrame
-                        local startTime = tick()
-                        while tick() - startTime < 1.5 do
-                            if not GodhumanZLockSettings.Enabled then break end
-                            rootPart.CFrame = savedCFrame
-                            rootPart.AssemblyLinearVelocity = Vector3.zero
-                            rootPart.AssemblyAngularVelocity = Vector3.zero
-                            RunService.Heartbeat:Wait()
-                        end
-                    end)
-                end
-            end
-        end
-    end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gp)
@@ -189,9 +161,10 @@ UserInputService.InputEnded:Connect(function(input, gp)
     end
 end)
 
--- Absolute Air-Float & Anti-Stun Loop
+-- Absolute Air-Float & Enhanced Anti-Stun / Anti-Fall Loop
 local floatAttachment = nil
 local floatLinearVelocity = nil
+local antiFallGyro = nil
 
 RunService.Stepped:Connect(function()
     local char = localPlayer.Character
@@ -200,6 +173,7 @@ RunService.Stepped:Connect(function()
     if not NoStunSettings.Enabled then
         if floatLinearVelocity then floatLinearVelocity:Destroy() floatLinearVelocity = nil end
         if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
+        if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
         return
     end
 
@@ -213,12 +187,14 @@ RunService.Stepped:Connect(function()
             humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
             
             local state = humanoid:GetState()
             if state == Enum.HumanoidStateType.Ragdoll or 
                state == Enum.HumanoidStateType.FallingDown or 
                state == Enum.HumanoidStateType.PlatformStanding or 
-               state == Enum.HumanoidStateType.Seated then
+               state == Enum.HumanoidStateType.Seated or
+               state == Enum.HumanoidStateType.Physics then
                 humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
         end)
@@ -227,6 +203,19 @@ RunService.Stepped:Connect(function()
     if rootPart then
         if rootPart.Anchored then rootPart.Anchored = false end
         
+        -- Prevent tipping over by keeping rootPart rotation locked straight up
+        if not antiFallGyro or antiFallGyro.Parent ~= rootPart then
+            if antiFallGyro then antiFallGyro:Destroy() end
+            antiFallGyro = Instance.new("BodyGyro")
+            antiFallGyro.Name = "AntiFallGyro"
+            antiFallGyro.MaxTorque = Vector3.new(400000, 0, 400000) -- Locks X and Z tilt, keeps Y free for turning
+            antiFallGyro.P = 20000
+            antiFallGyro.CFrame = rootPart.CFrame
+            antiFallGyro.Parent = rootPart
+        else
+            antiFallGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z))
+        end
+
         if isHoldingMove and humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping) then
             if not floatAttachment or floatAttachment.Parent ~= rootPart then
                 if floatAttachment then floatAttachment:Destroy() end
@@ -250,7 +239,7 @@ RunService.Stepped:Connect(function()
     end
     
     for _, child in ipairs(char:GetDescendants()) do
-        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or child:IsA("LinearVelocity")) and child.Name ~= "LongDashVelocity" and child.Name ~= "AirFloatConstraint" then
+        if (child:IsA("BodyVelocity") or child:IsA("BodyPosition") or (child:IsA("LinearVelocity") and child.Name ~= "AirFloatConstraint")) and child.Name ~= "LongDashVelocity" then
             pcall(function() child:Destroy() end)
         end
     end
@@ -413,8 +402,7 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 6)
 BtnCorner.Parent = OpenButton
 
--- Increased frame height to fit the new toggle row nicely
-local frameHeight = isAdmin and 630 or 480
+local frameHeight = isAdmin and 590 or 440
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -frameHeight/2)
@@ -540,7 +528,6 @@ local btnTpAlly = createFlatRow("TP Behind Ally", "TpAlly", 260)
 
 local btnFastAttack = createToggleRow("Fast Attack", FastAttackSettings.AutoClick, 298)
 local btnNoStun = createToggleRow("No Stun", NoStunSettings.Enabled, 336)
-local btnGodhumanZLock = createToggleRow("Godhuman Z Lock", GodhumanZLockSettings.Enabled, 374)
 
 local buttonMap = {
     PlayerCam = btnPlayerCam,
@@ -553,7 +540,7 @@ local buttonMap = {
 
 local SaveButton = Instance.new("TextButton")
 SaveButton.Size = UDim2.new(1, -20, 0, 32)
-SaveButton.Position = UDim2.new(0, 10, 0, 420)
+SaveButton.Position = UDim2.new(0, 10, 0, 380)
 SaveButton.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
 SaveButton.Font = Enum.Font.SourceSansBold
 SaveButton.TextSize = 13
@@ -576,7 +563,7 @@ end)
 if isAdmin then
     local AdminHeader = Instance.new("TextLabel")
     AdminHeader.Size = UDim2.new(1, -20, 0, 22)
-    AdminHeader.Position = UDim2.new(0, 10, 0, 460)
+    AdminHeader.Position = UDim2.new(0, 10, 0, 420)
     AdminHeader.BackgroundTransparency = 1
     AdminHeader.Font = Enum.Font.SourceSansBold
     AdminHeader.TextSize = 13
@@ -587,7 +574,7 @@ if isAdmin then
 
     local UserScroll = Instance.new("ScrollingFrame")
     UserScroll.Size = UDim2.new(1, -20, 0, 110)
-    UserScroll.Position = UDim2.new(0, 10, 0, 485)
+    UserScroll.Position = UDim2.new(0, 10, 0, 445)
     UserScroll.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     UserScroll.BorderSizePixel = 0
     UserScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -684,12 +671,6 @@ btnNoStun.MouseButton1Click:Connect(function()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-end)
-
-btnGodhumanZLock.MouseButton1Click:Connect(function()
-    GodhumanZLockSettings.Enabled = not GodhumanZLockSettings.Enabled
-    btnGodhumanZLock.Text = GodhumanZLockSettings.Enabled and "ON" or "OFF"
-    btnGodhumanZLock.TextColor3 = GodhumanZLockSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 local listeningKey = nil
@@ -818,7 +799,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
             localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
         end
-    elseif input.KeyCode == Keybinds.TpAlly then
+    elseif input.TestCode == Keybinds.TpAlly or input.KeyCode == Keybinds.TpAlly then
         local tChar = getClosestAlly()
         if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and tChar and tChar:FindFirstChild("HumanoidRootPart") then
             localPlayer.Character.HumanoidRootPart.CFrame = tChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
