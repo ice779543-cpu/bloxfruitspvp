@@ -28,7 +28,7 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Default Keybinds Table (Added NoStun = Enum.KeyCode.J as default, and MenuHide = B)
+-- Default Keybinds Table
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
     NpcCam = Enum.KeyCode.N,
@@ -173,7 +173,7 @@ RunService.Stepped:Connect(function()
         if floatAttachment then floatAttachment:Destroy() floatAttachment = nil end
         if antiFallGyro then antiFallGyro:Destroy() antiFallGyro = nil end
         
-        -- Re-enable vanilla humanoid states when No Stun is turned OFF
+        -- Fully restore vanilla humanoid states when No Stun is turned OFF
         if humanoid then
             pcall(function()
                 humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
@@ -241,7 +241,6 @@ RunService.Stepped:Connect(function()
         end
     end
     
-    -- Clean only non-skill physics objects so game moves/dashes work completely fine
     for _, child in ipairs(char:GetDescendants()) do
         if child:IsA("BodyPosition") then
             pcall(function() child:Destroy() end)
@@ -390,7 +389,7 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- GUI Setup (Increased frame height slightly to fit the new No Stun keybind row)
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -581,6 +580,19 @@ local function toggleNoStunState()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    
+    -- Immediately reset humanoid states when turned off manually
+    if not NoStunSettings.Enabled and localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            pcall(function()
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            end)
+        end
+    end
 end
 
 btnNoStun.MouseButton1Click:Connect(toggleNoStunState)
@@ -600,7 +612,6 @@ end
 OpenButton.MouseButton1Click:Connect(toggleMenu)
 
 local playerCamlockActive, npcCamlockActive, currentTarget = false, false, nil
-local enemiesFolder = Workspace:FindFirstChild("Enemies") or Workspace
 
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
@@ -682,13 +693,11 @@ UserInputService.InputBegan:Connect(function(input, gp)
 
     if input.KeyCode == Keybinds.MenuToggle then toggleMenu() return end
     
-    -- Hide / Unhide complete UI with Keybind B
     if input.KeyCode == Keybinds.MenuHide then
         ScreenGui.Enabled = not ScreenGui.Enabled
         return
     end
 
-    -- Toggle No Stun via its assigned keybind
     if input.KeyCode == Keybinds.NoStunKey then
         toggleNoStunState()
         return
