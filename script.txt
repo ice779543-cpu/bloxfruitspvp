@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Tabbed Menu - Fixed Auto Raid Island Progression, Noclip, Team ESP)
+    Blox Fruits Hub (Tabbed Menu - Enemy-Only Teleport & Camlock, Auto Raid)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -124,7 +124,6 @@ local function findCurrentRaidIsland(rootPos)
     local bestTarget = nil
     local shortestDist = math.huge
 
-    -- 1. Scan enemies first
     local enemiesFolder = Workspace:FindFirstChild("Enemies")
     if enemiesFolder then
         for _, mob in ipairs(enemiesFolder:GetChildren()) do
@@ -143,7 +142,6 @@ local function findCurrentRaidIsland(rootPos)
 
     if bestTarget then return bestTarget end
 
-    -- 2. If no enemies found, look for active Raid or Island map models/parts to move forward
     for _, obj in ipairs(Workspace:GetChildren()) do
         local name = obj.Name:lower()
         if name:find("island") or name:find("raid") or name:find("map") then
@@ -151,7 +149,6 @@ local function findCurrentRaidIsland(rootPos)
                 local success, pivot = pcall(function() return obj:GetPivot().Position end)
                 if success and pivot then
                     local dist = (pivot - rootPos).Magnitude
-                    -- Target islands that are further out or match progress
                     if dist < shortestDist and pivot.Y > -50 and pivot.Y < 3000 then
                         shortestDist = dist
                         bestTarget = pivot + Vector3.new(0, 40, 0)
@@ -175,7 +172,6 @@ local function manageRaidFlight()
         local bg = root:FindFirstChild("RaidFlyBG")
 
         if AutoRaidSettings.Enabled then
-            -- Noclip active
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then
                     part.CanCollide = false
@@ -222,6 +218,7 @@ local function manageRaidFlight()
     end)
 end
 
+-- FIXED: Ignores players on the same team (Allies)
 local function teleportBehindEnemy()
     pcall(function()
         local char = localPlayer.Character
@@ -231,12 +228,31 @@ local function teleportBehindEnemy()
         local closestRoot = nil
         local shortestDist = math.huge
 
+        -- 1. Check NPC enemies first
         local enemiesFolder = Workspace:FindFirstChild("Enemies")
         if enemiesFolder then
             for _, mob in ipairs(enemiesFolder:GetChildren()) do
                 if isValidRaidEnemy(mob) then
                     local enemyRoot = mob:FindFirstChild("HumanoidRootPart")
                     if enemyRoot then
+                        local dist = (enemyRoot.Position - root.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestRoot = enemyRoot
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 2. Check Player enemies (skips allies if they share the same team)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer and plr.Character then
+                -- Skip if same team
+                if not (localPlayer.Team and plr.Team and localPlayer.Team == plr.Team) then
+                    local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = plr.Character:FindFirstChild("Humanoid")
+                    if enemyRoot and hum and hum.Health > 0 then
                         local dist = (enemyRoot.Position - root.Position).Magnitude
                         if dist < shortestDist then
                             shortestDist = dist
@@ -508,6 +524,7 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
+-- FIXED: Ignores allies for player camlock as well
 local function getClosestTarget(isNpc)
     local myChar = localPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -535,13 +552,16 @@ local function getClosestTarget(isNpc)
     else
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= localPlayer and plr.Character then
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                local hum = plr.Character:FindFirstChild("Humanoid")
-                if root and hum and hum.Health > 0 then
-                    local dist = (root.Position - myRoot.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestTarget = root
+                -- Skip allies on the same team
+                if not (localPlayer.Team and plr.Team and localPlayer.Team == plr.Team) then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = plr.Character:FindFirstChild("Humanoid")
+                    if root and hum and hum.Health > 0 then
+                        local dist = (root.Position - myRoot.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestTarget = root
+                        end
                     end
                 end
             end
@@ -550,7 +570,6 @@ local function getClosestTarget(isNpc)
     return closestTarget
 end
 
--- RenderStepped Loop for Flight, Noclip, Team-Colored ESP, and Camlock
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if AutoRaidSettings.Enabled then
@@ -570,11 +589,11 @@ RunService.RenderStepped:Connect(function()
                         local stats = plr:FindFirstChild("Data") or plr:FindFirstChild("leaderstats")
                         if stats and stats:FindFirstChild("Level") then playerLevel = tostring(stats.Level.Value) end
 
-                        local espColor = Color3.fromRGB(255, 50, 50) -- Default Red (Pirates)
+                        local espColor = Color3.fromRGB(255, 50, 50)
                         if plr.Team then
                             local teamName = tostring(plr.Team.Name):lower()
                             if teamName:find("marine") then
-                                espColor = Color3.fromRGB(50, 150, 255) -- Blue for Marines
+                                espColor = Color3.fromRGB(50, 150, 255)
                             end
                         end
 
@@ -630,7 +649,6 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Multi-Target Background Fast Attack Loop
 task.spawn(function()
     while true do
         pcall(function()
