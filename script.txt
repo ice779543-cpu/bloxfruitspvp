@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Owner Locked: Kjdaking918 Only)
+    Blox Fruits Hub (Universal Script - Force Reset Tab Restricted to Kjdaking918)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -11,11 +11,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
-
--- SECURITY CHECK: Only allow Kjdaking918 to run/use this script
-if localPlayer.Name ~= "Kjdaking918" then
-    return
-end
+local isOwner = (localPlayer.Name == "Kjdaking918")
 
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
@@ -63,7 +59,7 @@ local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
-local TargetPlayerName = ""
+local SelectedTargetPlayer = nil
 
 local function getRegisterAttack()
     local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
@@ -255,19 +251,10 @@ local function teleportBehindEnemy()
     end)
 end
 
-local function forceResetPlayer(nameQuery)
+local function forceResetPlayer(targetPlr)
     pcall(function()
-        if not nameQuery or nameQuery == "" then return end
-        local targetPlr = nil
-        local lowerQuery = nameQuery:lower()
-        
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and (plr.Name:lower():sub(1, #lowerQuery) == lowerQuery or (plr.DisplayName and plr.DisplayName:lower():sub(1, #lowerQuery) == lowerQuery)) then
-                targetPlr = plr
-                break
-            end
-        end
-
+        if not isOwner then return end
+        if not targetPlr or targetPlr == localPlayer then return end
         if targetPlr and targetPlr.Character then
             local hum = targetPlr.Character:FindFirstChildOfClass("Humanoid")
             if hum then
@@ -339,7 +326,7 @@ TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "   Blox Fruits Hub (Owner: Kjdaking918)"
+TitleLabel.Text = "   Blox Fruits Hub"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
@@ -387,7 +374,7 @@ local function createTabButton(name, yPos, targetFrame)
     btn.MouseButton1Click:Connect(function()
         RaidFrame.Visible = false
         PvPFrame.Visible = false
-        PlayersFrame.Visible = false
+        if PlayersFrame then PlayersFrame.Visible = false end
         targetFrame.Visible = true
     end)
     return btn
@@ -395,7 +382,14 @@ end
 
 createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
-createTabButton("Players", 110, PlayersFrame)
+
+-- Only create/show the Players tab if the user is Kjdaking918
+if isOwner then
+    createTabButton("Players", 110, PlayersFrame)
+else
+    PlayersFrame:Destroy()
+    PlayersFrame = nil
+end
 
 RaidFrame.Visible = true
 
@@ -495,44 +489,82 @@ createKeybindRow(PvPFrame, "Long Dash", "LongDash", 205)
 createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 245)
 createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 285)
 
-local TargetInputRow = Instance.new("Frame")
-TargetInputRow.Size = UDim2.new(1, -10, 0, 40)
-TargetInputRow.Position = UDim2.new(0, 5, 0, 5)
-TargetInputRow.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-TargetInputRow.Parent = PlayersFrame
-Instance.new("UICorner", TargetInputRow).CornerRadius = UDim.new(0, 6)
+-- Players Tab setup (Only for Kjdaking918)
+if isOwner and PlayersFrame then
+    local SelectedLabel = Instance.new("TextLabel")
+    SelectedLabel.Size = UDim2.new(1, -10, 0, 30)
+    SelectedLabel.Position = UDim2.new(0, 5, 0, 5)
+    SelectedLabel.BackgroundTransparency = 1
+    SelectedLabel.Font = Enum.Font.SourceSansBold
+    SelectedLabel.TextSize = 13
+    SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+    SelectedLabel.Text = "Selected Target: None"
+    SelectedLabel.Parent = PlayersFrame
 
-local TargetTextBox = Instance.new("TextBox")
-TargetTextBox.Size = UDim2.new(1, -20, 1, -8)
-TargetTextBox.Position = UDim2.new(0, 10, 0, 4)
-TargetTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-TargetTextBox.Font = Enum.Font.SourceSansBold
-TargetTextBox.TextSize = 13
-TargetTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TargetTextBox.PlaceholderText = "Enter Player Name Here..."
-TargetTextBox.Text = ""
-TargetTextBox.Parent = TargetInputRow
-Instance.new("UICorner", TargetTextBox).CornerRadius = UDim.new(0, 4)
+    local PlayersListScroll = Instance.new("ScrollingFrame")
+    PlayersListScroll.Size = UDim2.new(1, -10, 0, 160)
+    PlayersListScroll.Position = UDim2.new(0, 5, 0, 40)
+    PlayersListScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+    PlayersListScroll.BorderSizePixel = 0
+    PlayersListScroll.ScrollBarThickness = 4
+    PlayersListScroll.Parent = PlayersFrame
+    Instance.new("UICorner", PlayersListScroll).CornerRadius = UDim.new(0, 6)
 
-TargetTextBox.FocusLost:Connect(function()
-    TargetPlayerName = TargetTextBox.Text
-end)
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.Padding = UDim.new(0, 3)
+    UIListLayout.Parent = PlayersListScroll
 
-local ForceResetBtn = Instance.new("TextButton")
-ForceResetBtn.Size = UDim2.new(1, -10, 0, 36)
-ForceResetBtn.Position = UDim2.new(0, 5, 0, 55)
-ForceResetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-ForceResetBtn.Font = Enum.Font.SourceSansBold
-ForceResetBtn.TextSize = 14
-ForceResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ForceResetBtn.Text = "Force Reset Player"
-ForceResetBtn.Parent = PlayersFrame
-Instance.new("UICorner", ForceResetBtn).CornerRadius = UDim.new(0, 6)
+    local ForceResetBtn = Instance.new("TextButton")
+    ForceResetBtn.Size = UDim2.new(1, -10, 0, 38)
+    ForceResetBtn.Position = UDim2.new(0, 5, 0, 210)
+    ForceResetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+    ForceResetBtn.Font = Enum.Font.SourceSansBold
+    ForceResetBtn.TextSize = 14
+    ForceResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ForceResetBtn.Text = "Force Reset Selected Player"
+    ForceResetBtn.Parent = PlayersFrame
+    Instance.new("UICorner", ForceResetBtn).CornerRadius = UDim.new(0, 6)
 
-ForceResetBtn.MouseButton1Click:Connect(function()
-    local nameToUse = TargetTextBox.Text ~= "" and TargetTextBox.Text or TargetPlayerName
-    forceResetPlayer(nameToUse)
-end)
+    local function updatePlayersList()
+        for _, child in ipairs(PlayersListScroll:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer then
+                local pBtn = Instance.new("TextButton")
+                pBtn.Size = UDim2.new(1, -6, 0, 30)
+                pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+                pBtn.Font = Enum.Font.SourceSansBold
+                pBtn.TextSize = 12
+                pBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+                pBtn.Text = plr.Name .. " (" .. plr.DisplayName .. ")"
+                pBtn.Parent = PlayersListScroll
+                Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 4)
+                
+                pBtn.MouseButton1Click:Connect(function()
+                    SelectedTargetPlayer = plr
+                    SelectedLabel.Text = "Selected Target: " .. plr.Name
+                end)
+            end
+        end
+        PlayersListScroll.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 33)
+    end
+
+    Players.PlayerAdded:Connect(updatePlayersList)
+    Players.PlayerRemoving:Connect(updatePlayersList)
+    updatePlayersList()
+
+    ForceResetBtn.MouseButton1Click:Connect(function()
+        if SelectedTargetPlayer then
+            forceResetPlayer(SelectedTargetPlayer)
+        end
+    end)
+end
 
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
