@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Universal Script - Force Reset Tab Restricted to Kjdaking918)
+    Blox Fruits Hub (Universal Script - Force Reset Fix)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -251,18 +251,26 @@ local function teleportBehindEnemy()
     end)
 end
 
+-- Enhanced Force Reset that tries both direct client property adjustment and RegisterHit packets
 local function forceResetPlayer(targetPlr)
     pcall(function()
         if not isOwner then return end
         if not targetPlr or targetPlr == localPlayer then return end
         if targetPlr and targetPlr.Character then
-            local hum = targetPlr.Character:FindFirstChildOfClass("Humanoid")
+            local char = targetPlr.Character
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local head = char:FindFirstChild("Head")
+            
             if hum then
                 hum.Health = 0
             end
-            local root = targetPlr.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                root:BreakJoints()
+            
+            -- Try firing a heavy hit registration packet to force server validation if possible
+            local regHit = getRegisterHit()
+            if regHit and head then
+                pcall(function()
+                    regHit:FireServer(head, {{char, head}})
+                end)
             end
         end
     end)
@@ -383,7 +391,6 @@ end
 createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
 
--- Only create/show the Players tab if the user is Kjdaking918
 if isOwner then
     createTabButton("Players", 110, PlayersFrame)
 else
@@ -489,7 +496,6 @@ createKeybindRow(PvPFrame, "Long Dash", "LongDash", 205)
 createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 245)
 createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 285)
 
--- Players Tab setup (Only for Kjdaking918)
 if isOwner and PlayersFrame then
     local SelectedLabel = Instance.new("TextLabel")
     SelectedLabel.Size = UDim2.new(1, -10, 0, 30)
