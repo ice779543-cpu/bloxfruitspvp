@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Tabbed Menu - Fixed Team ESP, Multi-Target Fast Attack, Safe Raid Flight)
+    Blox Fruits Hub (Tabbed Menu - Fixed Auto Raid Island Progression, Noclip, Team ESP)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -54,7 +54,7 @@ local Keybinds = {
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
-local AutoRaidSettings = { Enabled = false, FlySpeed = 160 }
+local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
 
@@ -115,16 +115,53 @@ local function isValidRaidEnemy(mob)
         local root = mob:FindFirstChild("HumanoidRootPart")
         if not hum or not root then return false end
         if hum.Health <= 0 then return false end
-        
-        local parentName = mob.Parent.Name
-        if parentName == "Enemies" then
-            if root.Position.Y > -100 and root.Position.Y < 3000 then
-                return true
-            end
-        end
         return true
     end)
     return success and result
+end
+
+local function findCurrentRaidIsland(rootPos)
+    local bestTarget = nil
+    local shortestDist = math.huge
+
+    -- 1. Scan enemies first
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidRaidEnemy(mob) then
+                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                if mobRoot then
+                    local dist = (mobRoot.Position - rootPos).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        bestTarget = mobRoot.Position + Vector3.new(0, 20, 0)
+                    end
+                end
+            end
+        end
+    end
+
+    if bestTarget then return bestTarget end
+
+    -- 2. If no enemies found, look for active Raid or Island map models/parts to move forward
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        local name = obj.Name:lower()
+        if name:find("island") or name:find("raid") or name:find("map") then
+            if obj:IsA("Model") then
+                local success, pivot = pcall(function() return obj:GetPivot().Position end)
+                if success and pivot then
+                    local dist = (pivot - rootPos).Magnitude
+                    -- Target islands that are further out or match progress
+                    if dist < shortestDist and pivot.Y > -50 and pivot.Y < 3000 then
+                        shortestDist = dist
+                        bestTarget = pivot + Vector3.new(0, 40, 0)
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
 end
 
 local function manageRaidFlight()
@@ -138,6 +175,13 @@ local function manageRaidFlight()
         local bg = root:FindFirstChild("RaidFlyBG")
 
         if AutoRaidSettings.Enabled then
+            -- Noclip active
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+
             if not bv then
                 bv = Instance.new("BodyVelocity")
                 bv.Name = "RaidFlyBV"
@@ -153,39 +197,11 @@ local function manageRaidFlight()
                 bg.Parent = root
             end
 
-            local enemiesFolder = Workspace:FindFirstChild("Enemies")
-            local targetPos = nil
-            local foundAliveEnemy = false
-
-            if enemiesFolder then
-                local shortestDist = math.huge
-                for _, mob in ipairs(enemiesFolder:GetChildren()) do
-                    if isValidRaidEnemy(mob) then
-                        foundAliveEnemy = true
-                        local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                        if mobRoot then
-                            local dist = (mobRoot.Position - root.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                targetPos = mobRoot.Position + Vector3.new(0, 15, 0)
-                            end
-                        end
-                    end
-                end
-            end
-
-            if not foundAliveEnemy then
-                local raidMap = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("Raid")
-                if raidMap and raidMap:IsA("Model") then
-                    targetPos = raidMap:GetPivot().Position + Vector3.new(0, 30, 0)
-                else
-                    targetPos = root.Position + Vector3.new(0, 5, 0)
-                end
-            end
+            local targetPos = findCurrentRaidIsland(root.Position)
 
             if targetPos then
                 local direction = (targetPos - root.Position)
-                if direction.Magnitude > 8 then
+                if direction.Magnitude > 10 then
                     bv.Velocity = direction.Unit * AutoRaidSettings.FlySpeed
                     bg.CFrame = CFrame.new(root.Position, targetPos)
                 else
@@ -197,6 +213,11 @@ local function manageRaidFlight()
         else
             if bv then bv:Destroy() end
             if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
         end
     end)
 end
@@ -464,6 +485,13 @@ btnAutoRaid.MouseButton1Click:Connect(function()
             if root:FindFirstChild("RaidFlyBV") then root.RaidFlyBV:Destroy() end
             if root:FindFirstChild("RaidFlyBG") then root.RaidFlyBG:Destroy() end
         end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
     end
 end)
 
@@ -522,7 +550,7 @@ local function getClosestTarget(isNpc)
     return closestTarget
 end
 
--- RenderStepped Loop for Flight, Team-Colored ESP, and Camlock
+-- RenderStepped Loop for Flight, Noclip, Team-Colored ESP, and Camlock
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if AutoRaidSettings.Enabled then
@@ -542,7 +570,6 @@ RunService.RenderStepped:Connect(function()
                         local stats = plr:FindFirstChild("Data") or plr:FindFirstChild("leaderstats")
                         if stats and stats:FindFirstChild("Level") then playerLevel = tostring(stats.Level.Value) end
 
-                        -- Fixed Team Color Check (Checks for both Marine / Marines / Pirate)
                         local espColor = Color3.fromRGB(255, 50, 50) -- Default Red (Pirates)
                         if plr.Team then
                             local teamName = tostring(plr.Team.Name):lower()
