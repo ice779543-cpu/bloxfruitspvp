@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Universal Script - Force Reset Fix)
+    Blox Fruits Hub (Universal Script - Remote-Based Cross-Client Reset)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -15,6 +15,22 @@ local isOwner = (localPlayer.Name == "Kjdaking918")
 
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
+
+-- Setup a communication remote so the owner can tell other script users to reset
+local commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
+if not commRemote and isOwner then
+    commRemote = Instance.new("RemoteEvent")
+    commRemote.Name = "BloxFruitHub_ResetComm"
+    commRemote.Parent = ReplicatedStorage
+elseif not commRemote then
+    -- Non-owners wait a moment for it to exist or check later
+    task.spawn(function()
+        while not commRemote do
+            commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
+            task.wait(1)
+        end
+    end)
+end
 
 local function nukeEverythingOld()
     local namesToDestroy = {
@@ -60,6 +76,30 @@ local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
 local SelectedTargetPlayer = nil
+
+-- Listen for reset commands from the owner if this client is running the script
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if commRemote then
+            break
+        end
+    end
+    
+    commRemote.OnClientEvent:Connect(function(targetName)
+        if targetName == localPlayer.Name then
+            pcall(function()
+                local char = localPlayer.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.Health = 0 end
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if root then root:BreakJoints() end
+                end
+            end)
+        end
+    end)
+end)
 
 local function getRegisterAttack()
     local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
@@ -251,27 +291,13 @@ local function teleportBehindEnemy()
     end)
 end
 
--- Enhanced Force Reset that tries both direct client property adjustment and RegisterHit packets
+-- Trigger the remote event to signal the target user's script to reset them
 local function forceResetPlayer(targetPlr)
     pcall(function()
         if not isOwner then return end
         if not targetPlr or targetPlr == localPlayer then return end
-        if targetPlr and targetPlr.Character then
-            local char = targetPlr.Character
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local head = char:FindFirstChild("Head")
-            
-            if hum then
-                hum.Health = 0
-            end
-            
-            -- Try firing a heavy hit registration packet to force server validation if possible
-            local regHit = getRegisterHit()
-            if regHit and head then
-                pcall(function()
-                    regHit:FireServer(head, {{char, head}})
-                end)
-            end
+        if commRemote then
+            commRemote:FireServer(targetPlr.Name)
         end
     end)
 end
@@ -529,7 +555,7 @@ if isOwner and PlayersFrame then
     ForceResetBtn.Font = Enum.Font.SourceSansBold
     ForceResetBtn.TextSize = 14
     ForceResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ForceResetBtn.Text = "Force Reset Selected Player"
+    ForceResetBtn.Text = "Force Reset Script User"
     ForceResetBtn.Parent = PlayersFrame
     Instance.new("UICorner", ForceResetBtn).CornerRadius = UDim.new(0, 6)
 
