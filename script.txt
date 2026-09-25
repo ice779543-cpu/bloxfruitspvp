@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Tabbed Menu - Enemy-Only Teleport & Camlock, Auto Raid)
+    Blox Fruits Hub (Tabbed Menu - Screen-Space Camlock, Enemy-Only Teleport, Auto Raid)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -218,7 +218,6 @@ local function manageRaidFlight()
     end)
 end
 
--- FIXED: Ignores players on the same team (Allies)
 local function teleportBehindEnemy()
     pcall(function()
         local char = localPlayer.Character
@@ -228,7 +227,6 @@ local function teleportBehindEnemy()
         local closestRoot = nil
         local shortestDist = math.huge
 
-        -- 1. Check NPC enemies first
         local enemiesFolder = Workspace:FindFirstChild("Enemies")
         if enemiesFolder then
             for _, mob in ipairs(enemiesFolder:GetChildren()) do
@@ -245,10 +243,8 @@ local function teleportBehindEnemy()
             end
         end
 
-        -- 2. Check Player enemies (skips allies if they share the same team)
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= localPlayer and plr.Character then
-                -- Skip if same team
                 if not (localPlayer.Team and plr.Team and localPlayer.Team == plr.Team) then
                     local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                     local hum = plr.Character:FindFirstChild("Humanoid")
@@ -294,7 +290,6 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- UI Layout Setup with Tabs
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -470,10 +465,8 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
--- POPULATE RAID TAB
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
--- POPULATE PVP TAB
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 5)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 45)
 
@@ -524,26 +517,30 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
--- FIXED: Ignores allies for player camlock as well
+-- UPDATED: Camlocks to the target closest to the center of your screen / crosshair (with team checks for players)
 local function getClosestTarget(isNpc)
-    local myChar = localPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
-
     local closestTarget = nil
     local shortestDist = math.huge
+    local screenSize = camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
 
     if isNpc then
         local enemiesFolder = Workspace:FindFirstChild("Enemies")
         if enemiesFolder then
+            local myChar = localPlayer.Character
+            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
             for _, mob in ipairs(enemiesFolder:GetChildren()) do
                 if isValidRaidEnemy(mob) then
                     local root = mob:FindFirstChild("HumanoidRootPart")
                     if root then
-                        local dist = (root.Position - myRoot.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestTarget = root
+                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                        if onScreen then
+                            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if screenDist < shortestDist then
+                                shortestDist = screenDist
+                                closestTarget = root
+                            end
                         end
                     end
                 end
@@ -557,10 +554,13 @@ local function getClosestTarget(isNpc)
                     local root = plr.Character:FindFirstChild("HumanoidRootPart")
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if root and hum and hum.Health > 0 then
-                        local dist = (root.Position - myRoot.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestTarget = root
+                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                        if onScreen then
+                            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if screenDist < shortestDist then
+                                shortestDist = screenDist
+                                closestTarget = root
+                            end
                         end
                     end
                 end
