@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Tabbed Menu - Screen-Space Camlock, Enemy-Only Teleport, Auto Raid)
+    Blox Fruits Hub (Tabbed Menu - Fixed Crosshair Camlock, Ally Filter, Enemy TP, Auto Raid)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -517,7 +517,7 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
--- UPDATED: Camlocks to the target closest to the center of your screen / crosshair (with team checks for players)
+-- FIXED: Crosshair / Screen-Center Camlock with Ally & Visibility Filtering
 local function getClosestTarget(isNpc)
     local closestTarget = nil
     local shortestDist = math.huge
@@ -527,15 +527,12 @@ local function getClosestTarget(isNpc)
     if isNpc then
         local enemiesFolder = Workspace:FindFirstChild("Enemies")
         if enemiesFolder then
-            local myChar = localPlayer.Character
-            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-
             for _, mob in ipairs(enemiesFolder:GetChildren()) do
                 if isValidRaidEnemy(mob) then
                     local root = mob:FindFirstChild("HumanoidRootPart")
                     if root then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                        if onScreen then
+                        local screenPos = camera:WorldToViewportPoint(root.Position)
+                        if screenPos.Z > 0 then
                             local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                             if screenDist < shortestDist then
                                 shortestDist = screenDist
@@ -554,8 +551,8 @@ local function getClosestTarget(isNpc)
                     local root = plr.Character:FindFirstChild("HumanoidRootPart")
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if root and hum and hum.Health > 0 then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                        if onScreen then
+                        local screenPos = camera:WorldToViewportPoint(root.Position)
+                        if screenPos.Z > 0 then
                             local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                             if screenDist < shortestDist then
                                 shortestDist = screenDist
