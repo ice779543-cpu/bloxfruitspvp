@@ -1,5 +1,5 @@
 --[[
-    Blox Fruits Hub (Tabbed Menu - Crosshair Camlock, No-Team-Restriction TP/Camlock, Auto Raid)
+    Blox Fruits Hub (Tabbed Menu - Crosshair Camlock, Player-Only TP, Universal Fast Attack for NPCs & Players)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -218,7 +218,6 @@ local function manageRaidFlight()
     end)
 end
 
--- UPDATED: Teleport behind any player (alliance restrictions removed)
 local function teleportBehindEnemy()
     pcall(function()
         local char = localPlayer.Character
@@ -227,22 +226,6 @@ local function teleportBehindEnemy()
 
         local closestRoot = nil
         local shortestDist = math.huge
-
-        local enemiesFolder = Workspace:FindFirstChild("Enemies")
-        if enemiesFolder then
-            for _, mob in ipairs(enemiesFolder:GetChildren()) do
-                if isValidRaidEnemy(mob) then
-                    local enemyRoot = mob:FindFirstChild("HumanoidRootPart")
-                    if enemyRoot then
-                        local dist = (enemyRoot.Position - root.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestRoot = enemyRoot
-                        end
-                    end
-                end
-            end
-        end
 
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= localPlayer and plr.Character then
@@ -473,7 +456,7 @@ createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 85)
 createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 125)
 createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 165)
 createKeybindRow(PvPFrame, "Long Dash", "LongDash", 205)
-createKeybindRow(PvPFrame, "Tp to Enemy", "TpEnemy", 245)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 245)
 createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 285)
 
 btnFastAttack.MouseButton1Click:Connect(function()
@@ -516,7 +499,6 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
--- UPDATED: Screen-Center Camlock targeting ANY other player (Alliance/Team restrictions removed)
 local function getClosestTarget(isNpc)
     local closestTarget = nil
     local shortestDist = math.huge
@@ -642,6 +624,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
+-- UPDATED: Fast Attack now targets BOTH nearby NPCs and Players
 task.spawn(function()
     while true do
         pcall(function()
@@ -650,9 +633,11 @@ task.spawn(function()
                 if char and char:FindFirstChildOfClass("Tool") then
                     local myRoot = char:FindFirstChild("HumanoidRootPart")
                     if myRoot then
+                        local targetsList = {}
+                        
+                        -- 1. Gather NPCs / Raid Mobs
                         local enemiesFolder = Workspace:FindFirstChild("Enemies")
                         if enemiesFolder then
-                            local targetsList = {}
                             for _, mob in pairs(enemiesFolder:GetChildren()) do
                                 if isValidRaidEnemy(mob) then
                                     local head = mob:FindFirstChild("Head")
@@ -663,9 +648,22 @@ task.spawn(function()
                                     end
                                 end
                             end
-                            if #targetsList > 0 then
-                                executeMultiAttack(targetsList)
+                        end
+
+                        -- 2. Gather Real Players
+                        for _, plr in ipairs(Players:GetPlayers()) do
+                            if plr ~= localPlayer and plr.Character then
+                                local head = plr.Character:FindFirstChild("Head")
+                                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                                local hum = plr.Character:FindFirstChild("Humanoid")
+                                if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                    table.insert(targetsList, {Head = head, Root = root})
+                                end
                             end
+                        end
+
+                        if #targetsList > 0 then
+                            executeMultiAttack(targetsList)
                         end
                     end
                 end
