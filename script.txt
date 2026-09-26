@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros with Custom Delays)
+-- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc Tab with Auto V3/V4/Aura)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -39,6 +39,12 @@ local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
+
+local MiscSettings = {
+    AutoV3 = false,
+    AutoV4 = false,
+    AutoAura = false
+}
 
 local CamStates = {
     PlayerCamActive = false,
@@ -195,9 +201,8 @@ local function runMacroSequence()
                     local category = actionStr:sub(1, spacePos - 1)
                     local moveKey = actionStr:sub(spacePos + 1):upper()
 
-                    -- 1. Equip tool category and wait for client registration
                     equipToolType(category)
-                    task.wait(0.25) -- Expanded buffer to let the tool fully register client-side
+                    task.wait(0.25)
 
                     local keyCode = Enum.KeyCode[moveKey]
                     if keyCode then
@@ -205,19 +210,16 @@ local function runMacroSequence()
                             local viewportSize = camera.ViewportSize
                             local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
                             
-                            -- Focus screen center viewport
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
                             task.wait(0.05)
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
                             task.wait(0.05)
 
-                            -- Send distinct KeyDown and KeyUp states to register the specific move index
                             VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-                            task.wait(0.12) -- Hold duration so the game registers the skill charge
+                            task.wait(0.12)
                             VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
                         end)
                         
-                        -- 2. Enforce the user's custom delay before processing the next move index
                         task.wait(MacroDelays[i] or 0.6)
                     end
                 end
@@ -487,6 +489,7 @@ end
 local RaidFrame = createContentScrollingFrame(400)
 local PvPFrame = createContentScrollingFrame(500)
 local MacroFrame = createContentScrollingFrame(420)
+local MiscFrame = createContentScrollingFrame(300)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -504,6 +507,7 @@ local function createTabButton(name, yPos, targetFrame)
         RaidFrame.Visible = false
         PvPFrame.Visible = false
         MacroFrame.Visible = false
+        MiscFrame.Visible = false
         targetFrame.Visible = true
     end)
     return btn
@@ -512,6 +516,7 @@ end
 createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
 createTabButton("Macro", 110, MacroFrame)
+createTabButton("Misc", 160, MiscFrame)
 
 RaidFrame.Visible = true
 
@@ -746,6 +751,29 @@ for i = 1, 8 do
     createMacroBlockWithDelay(MacroFrame, i, 45 + ((i - 1) * 40))
 end
 
+-- Misc Tab Controls
+local btnAutoV3 = createToggleRow(MiscFrame, "Auto V3 Ability", MiscSettings.AutoV3, 5)
+local btnAutoV4 = createToggleRow(MiscFrame, "Auto V4 Transformation", MiscSettings.AutoV4, 45)
+local btnAutoAura = createToggleRow(MiscFrame, "Auto Aura (Buso Haki)", MiscSettings.AutoAura, 85)
+
+btnAutoV3.MouseButton1Click:Connect(function()
+    MiscSettings.AutoV3 = not MiscSettings.AutoV3
+    btnAutoV3.Text = MiscSettings.AutoV3 and "ON" or "OFF"
+    btnAutoV3.TextColor3 = MiscSettings.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+btnAutoV4.MouseButton1Click:Connect(function()
+    MiscSettings.AutoV4 = not MiscSettings.AutoV4
+    btnAutoV4.Text = MiscSettings.AutoV4 and "ON" or "OFF"
+    btnAutoV4.TextColor3 = MiscSettings.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+btnAutoAura.MouseButton1Click:Connect(function()
+    MiscSettings.AutoAura = not MiscSettings.AutoAura
+    btnAutoAura.Text = MiscSettings.AutoAura and "ON" or "OFF"
+    btnAutoAura.TextColor3 = MiscSettings.AutoAura and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
 btnFOVCircle.MouseButton1Click:Connect(function()
     FOVSettings.Enabled = not FOVSettings.Enabled
     btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
@@ -790,6 +818,7 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
+-- Fast Attack Loop
 task.spawn(function()
     while true do
         pcall(function()
@@ -836,13 +865,54 @@ task.spawn(function()
     end
 end)
 
+-- Misc Automation Loop (Auto V3, Auto V4, Auto Aura)
+task.spawn(function()
+    while true do
+        pcall(function()
+            local char = localPlayer.Character
+            if char then
+                -- Auto Aura Check (Sends 'J' key if Buso effect isn't found on character)
+                if MiscSettings.AutoAura then
+                    local attrs = char:FindFirstChild("HasBuso") or char:FindFirstChild("Buso")
+                    if not attrs then
+                        local hasBusoActive = false
+                        for _, v in ipairs(char:GetChildren()) do
+                            if v:IsA("BasePart") and v.Color ~= Color3.new(0,0,0) and v.Material == Enum.Material.Glass then
+                                -- Basic heuristic check or use remote, using VirtualInput for safety
+                            end
+                        end
+                        -- Send J key toggle for aura
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.J, false, game)
+                        task.wait(0.05)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.J, false, game)
+                    end
+                end
+
+                -- Auto V3 (Key T)
+                if MiscSettings.AutoV3 then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
+                    task.wait(0.05)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
+                end
+
+                -- Auto V4 Transformation (Key Y when ready)
+                if MiscSettings.AutoV4 then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
+                    task.wait(0.05)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Y, false, game)
+                end
+            end
+        end)
+        task.wait(1.5) -- Loop interval to prevent spam overload
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if AutoRaidSettings.Enabled then
             manageRaidFlight()
         end
 
-        -- Sticky Player Camlock Logic
         if CamStates.PlayerCamActive then
             if CamStates.LockedPlayerTarget and CamStates.LockedPlayerTarget.Parent then
                 local hum = CamStates.LockedPlayerTarget.Parent:FindFirstChild("Humanoid")
@@ -858,7 +928,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Sticky NPC Camlock Logic
         if CamStates.NpcCamActive then
             if CamStates.LockedNpcTarget and CamStates.LockedNpcTarget.Parent then
                 local hum = CamStates.LockedNpcTarget.Parent:FindFirstChild("Humanoid")
@@ -987,7 +1056,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.PlayerCamActive = false
                 CamStates.LockedPlayerTarget = nil
             else
-                val = findAimedPlayerTarget()
+                local val = findAimedPlayerTarget()
                 if val then
                     CamStates.PlayerCamActive = true
                     CamStates.LockedPlayerTarget = val
