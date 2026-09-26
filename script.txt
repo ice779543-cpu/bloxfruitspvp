@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc & Fruit Notifier Tabs)
+-- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc, Fruit Notifier & NPC Tabs)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
 pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
-        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") then
+        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") or obj.Name:find("NPCHitboxGUI") then
             obj:Destroy()
         end
     end
@@ -49,6 +49,13 @@ local MiscSettings = {
 local FruitNotifierSettings = {
     Enabled = false
 }
+
+local NpcHitboxSettings = {
+    Enabled = false,
+    Size = 5
+}
+
+local originalHitboxSizes = {}
 
 local CamStates = {
     PlayerCamActive = false,
@@ -156,6 +163,28 @@ local function ClearAllFruitESP()
             if bb then bb:Destroy() end
         end)
     end
+end
+
+local function isNPCModel(model)
+    if not model:FindFirstChildOfClass("Humanoid") then return false end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character == model then
+            return false
+        end
+    end
+    return true
+end
+
+local function restoreHitboxes()
+    for part, data in pairs(originalHitboxSizes) do
+        if part and part.Parent then
+            part.Size = data.size
+            part.Transparency = data.transparency
+            part.Material = data.material
+            part.CanCollide = data.canCollide
+        end
+    end
+    originalHitboxSizes = {}
 end
 
 local function isValidRaidEnemy(mob)
@@ -584,6 +613,7 @@ local PvPFrame = createContentScrollingFrame(500)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
+local NpcFrame = createContentScrollingFrame(300)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -603,6 +633,7 @@ local function createTabButton(name, yPos, targetFrame)
         MacroFrame.Visible = false
         MiscFrame.Visible = false
         FruitFrame.Visible = false
+        NpcFrame.Visible = false
         targetFrame.Visible = true
     end)
     return btn
@@ -613,6 +644,7 @@ createTabButton("PvP", 60, PvPFrame)
 createTabButton("Macro", 110, MacroFrame)
 createTabButton("Misc", 160, MiscFrame)
 createTabButton("Fruit Notifier", 210, FruitFrame)
+createTabButton("NPC", 260, NpcFrame)
 
 RaidFrame.Visible = true
 
@@ -889,6 +921,22 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
+-- NPC Tab Controls (Hitbox Expander)
+local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
+
+btnNpcHitbox.MouseButton1Click:Connect(function()
+    NpcHitboxSettings.Enabled = not NpcHitboxSettings.Enabled
+    btnNpcHitbox.Text = NpcHitboxSettings.Enabled and "ON" or "OFF"
+    btnNpcHitbox.TextColor3 = NpcHitboxSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not NpcHitboxSettings.Enabled then
+        restoreHitboxes()
+    end
+end)
+
+createSliderRow(NpcFrame, "Hitbox Size", 1, 100, NpcHitboxSettings.Size, 45, function(val)
+    NpcHitboxSettings.Size = val
+end)
+
 -- Real-time fruit watcher connection
 Workspace.DescendantAdded:Connect(function(obj)
     if FruitNotifierSettings.Enabled then
@@ -1022,6 +1070,32 @@ end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
+        if NpcHitboxSettings.Enabled then
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("Model") and isNPCModel(obj) then
+                    local rootPart = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+                    local hum = obj:FindFirstChildOfClass("Humanoid")
+                    if rootPart and rootPart:IsA("BasePart") and hum and hum.Health > 0 then
+                        if not originalHitboxSizes[rootPart] then
+                            originalHitboxSizes[rootPart] = {
+                                size = rootPart.Size,
+                                transparency = rootPart.Transparency,
+                                material = rootPart.Material,
+                                canCollide = rootPart.CanCollide
+                            }
+                        end
+                        rootPart.Size = Vector3.new(NpcHitboxSettings.Size, NpcHitboxSettings.Size, NpcHitboxSettings.Size)
+                        rootPart.Transparency = 0.5
+                        rootPart.Material = Enum.Material.Neon
+                        rootPart.Color = Color3.fromRGB(255, 100, 100)
+                        rootPart.CanCollide = false
+                    end
+                end
+            end
+        else
+            restoreHitboxes()
+        end
+
         if AutoRaidSettings.Enabled then
             manageRaidFlight()
         end
