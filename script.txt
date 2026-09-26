@@ -13,7 +13,6 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- Safe cleanup to prevent crashing during startup
 pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
         if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") then
@@ -57,7 +56,7 @@ local MacroActions = {
 }
 
 local MacroSelections = { "None", "None", "None", "None", "None", "None", "None", "None" }
-local MacroDelays = { 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4 }
+local MacroDelays = { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 }
 
 local function isValidRaidEnemy(mob)
     local success, result = pcall(function()
@@ -123,13 +122,13 @@ end
 
 local function equipToolType(toolType)
     local char = localPlayer.Character
-    if not char then return end
+    if not char then return false end
 
     local currentTool = char:FindFirstChildOfClass("Tool")
     if currentTool then
         local tip = currentTool.ToolTip:lower()
         if tip == toolType.lower() or (toolType == "Fruit" and tip:find("blox fruit")) then
-            return
+            return true
         end
     end
 
@@ -172,14 +171,22 @@ local function equipToolType(toolType)
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 humanoid:EquipTool(foundTool)
-                task.wait(0.2)
+                task.wait(0.3)
+                return true
             end
+        else
+            return true
         end
     end
+    return false
 end
 
--- Fixed macro sequence function with proper yielding to fire all blocks sequentially
+-- Ultra-Reliable Multi-Move Sequential Macro Handler
+local isMacroRunning = false
 local function runMacroSequence()
+    if isMacroRunning then return end
+    isMacroRunning = true
+
     task.spawn(function()
         for i, actionStr in ipairs(MacroSelections) do
             if actionStr and actionStr ~= "None" then
@@ -188,21 +195,35 @@ local function runMacroSequence()
                     local category = actionStr:sub(1, spacePos - 1)
                     local moveKey = actionStr:sub(spacePos + 1):upper()
 
+                    -- 1. Equip tool category and wait for client registration
                     equipToolType(category)
-                    task.wait(0.15)
+                    task.wait(0.25) -- Expanded buffer to let the tool fully register client-side
 
                     local keyCode = Enum.KeyCode[moveKey]
                     if keyCode then
                         pcall(function()
-                            VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                            local viewportSize = camera.ViewportSize
+                            local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
+                            
+                            -- Focus screen center viewport
+                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
                             task.wait(0.05)
+                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                            task.wait(0.05)
+
+                            -- Send distinct KeyDown and KeyUp states to register the specific move index
+                            VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                            task.wait(0.12) -- Hold duration so the game registers the skill charge
                             VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
                         end)
-                        task.wait(MacroDelays[i] or 0.4)
+                        
+                        -- 2. Enforce the user's custom delay before processing the next move index
+                        task.wait(MacroDelays[i] or 0.6)
                     end
                 end
             end
         end
+        isMacroRunning = false
     end)
 end
 
@@ -684,7 +705,7 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     DelayButton.Parent = Row
     Instance.new("UICorner", DelayButton).CornerRadius = UDim.new(0, 4)
 
-    local delaySteps = {0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5}
+    local delaySteps = {0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.5}
     DelayButton.MouseButton1Click:Connect(function()
         local currentIdx = 3 
         for idx, val in ipairs(delaySteps) do
@@ -966,10 +987,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.PlayerCamActive = false
                 CamStates.LockedPlayerTarget = nil
             else
-                local target = findAimedPlayerTarget()
-                if target then
+                val = findAimedPlayerTarget()
+                if val then
                     CamStates.PlayerCamActive = true
-                    CamStates.LockedPlayerTarget = target
+                    CamStates.LockedPlayerTarget = val
                     CamStates.NpcCamActive = false
                     CamStates.LockedNpcTarget = nil
                 end
