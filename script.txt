@@ -1,6 +1,4 @@
---[[
-    Blox Fruits Hub (Universal Script - Remote-Based Cross-Client Reset)
-]]
+-- Blox Fruits Hub (Updated with Auto Clicker & Keybind)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -9,6 +7,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local isOwner = (localPlayer.Name == "Kjdaking918")
@@ -16,14 +15,12 @@ local isOwner = (localPlayer.Name == "Kjdaking918")
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
--- Setup a communication remote so the owner can tell other script users to reset
 local commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
 if not commRemote and isOwner then
     commRemote = Instance.new("RemoteEvent")
     commRemote.Name = "BloxFruitHub_ResetComm"
     commRemote.Parent = ReplicatedStorage
 elseif not commRemote then
-    -- Non-owners wait a moment for it to exist or check later
     task.spawn(function()
         while not commRemote do
             commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
@@ -68,22 +65,21 @@ local Keybinds = {
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
     MenuToggle = Enum.KeyCode.M,
-    MenuHide = Enum.KeyCode.B
+    MenuHide = Enum.KeyCode.B,
+    AutoClickerKey = Enum.KeyCode.C -- Default key to toggle Auto Clicker
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
+local AutoClickerSettings = { Enabled = false, Delay = 0.05 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
 local SelectedTargetPlayer = nil
 
--- Listen for reset commands from the owner if this client is running the script
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if commRemote then
-            break
-        end
+        if commRemote then break end
     end
     
     commRemote.OnClientEvent:Connect(function(targetName)
@@ -216,9 +212,7 @@ local function manageRaidFlight()
 
         if AutoRaidSettings.Enabled then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
 
             if not bv then
@@ -253,9 +247,7 @@ local function manageRaidFlight()
             if bv then bv:Destroy() end
             if bg then bg:Destroy() end
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end)
@@ -291,7 +283,6 @@ local function teleportBehindEnemy()
     end)
 end
 
--- Trigger the remote event to signal the target user's script to reset them
 local function forceResetPlayer(targetPlr)
     pcall(function()
         if not isOwner then return end
@@ -382,7 +373,7 @@ local function createContentScrollingFrame()
     local sf = Instance.new("ScrollingFrame")
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
-    sf.CanvasSize = UDim2.new(0, 0, 0, 400)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 450)
     sf.ScrollBarThickness = 4
     sf.Visible = false
     sf.Parent = ContentPanel
@@ -513,14 +504,16 @@ end
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 5)
-local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 45)
+local btnAutoClicker = createToggleRow(PvPFrame, "Auto Clicker", AutoClickerSettings.Enabled, 45)
+local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 85)
-createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 125)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 165)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 205)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 245)
-createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 285)
+createKeybindRow(PvPFrame, "Auto Clicker Key", "AutoClickerKey", 125)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 165)
+createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 205)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 245)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 285)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 325)
+createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 365)
 
 if isOwner and PlayersFrame then
     local SelectedLabel = Instance.new("TextLabel")
@@ -561,9 +554,7 @@ if isOwner and PlayersFrame then
 
     local function updatePlayersList()
         for _, child in ipairs(PlayersListScroll:GetChildren()) do
-            if child:IsA("TextButton") then
-                child:Destroy()
-            end
+            if child:IsA("TextButton") then child:Destroy() end
         end
         
         for _, plr in ipairs(Players:GetPlayers()) do
@@ -604,6 +595,12 @@ btnFastAttack.MouseButton1Click:Connect(function()
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
+btnAutoClicker.MouseButton1Click:Connect(function()
+    AutoClickerSettings.Enabled = not AutoClickerSettings.Enabled
+    btnAutoClicker.Text = AutoClickerSettings.Enabled and "ON" or "OFF"
+    btnAutoClicker.TextColor3 = AutoClickerSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
 btnAutoRaid.MouseButton1Click:Connect(function()
     AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
     btnAutoRaid.Text = AutoRaidSettings.Enabled and "ON" or "OFF"
@@ -617,9 +614,7 @@ btnAutoRaid.MouseButton1Click:Connect(function()
         end
         if char then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
@@ -763,6 +758,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
+-- Standard Fast Attack Loop
 task.spawn(function()
     while true do
         pcall(function()
@@ -809,6 +805,23 @@ task.spawn(function()
     end
 end)
 
+-- Safe Built-in Auto Clicker Loop (Works as a backup if Fast Attack fails)
+task.spawn(function()
+    while true do
+        pcall(function()
+            if AutoClickerSettings.Enabled then
+                local char = localPlayer.Character
+                if char and char:FindFirstChildOfClass("Tool") then
+                    VirtualUser:Button1Down(Vector2.new(0, 0), camera.CFrame)
+                    task.wait(0.02)
+                    VirtualUser:Button1Up(Vector2.new(0, 0), camera.CFrame)
+                end
+            end
+        end)
+        task.wait(AutoClickerSettings.Delay)
+    end
+end)
+
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     pcall(function()
@@ -819,6 +832,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
             MainFrame.Visible = not MainFrame.Visible
         elseif input.KeyCode == Keybinds.MenuHide then
             ScreenGui.Enabled = not ScreenGui.Enabled
+        elseif input.KeyCode == Keybinds.AutoClickerKey then
+            AutoClickerSettings.Enabled = not AutoClickerSettings.Enabled
+            btnAutoClicker.Text = AutoClickerSettings.Enabled and "ON" or "OFF"
+            btnAutoClicker.TextColor3 = AutoClickerSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
         elseif input.KeyCode == Keybinds.PlayerCam then
             CombatStates.PlayerCamActive = not CombatStates.PlayerCamActive
             if CombatStates.PlayerCamActive then CombatStates.NpcCamActive = false end
