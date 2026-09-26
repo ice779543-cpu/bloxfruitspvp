@@ -9,7 +9,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
-local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
+local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Name or "Player") .. ".json"
 
 pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
@@ -45,19 +45,9 @@ local MiscSettings = {
     WalkOnWater = false
 }
 
-local FruitNotifierSettings = {
-    Enabled = false
-}
-
-local NpcHitboxSettings = {
-    Enabled = false,
-    Size = 15
-}
-
-local PlayerHitboxSettings = {
-    Enabled = false,
-    Size = 15
-}
+local FruitNotifierSettings = { Enabled = false }
+local NpcHitboxSettings = { Enabled = false, Size = 15 }
+local PlayerHitboxSettings = { Enabled = false, Size = 15 }
 
 local originalHitboxSizes = {}
 local originalPlayerHitboxSizes = {}
@@ -96,9 +86,7 @@ local BlacklistKeywords = {
 local function IsBlacklisted(name)
     local lowerName = name:lower()
     for _, keyword in ipairs(BlacklistKeywords) do
-        if lowerName:find(keyword:lower()) then
-            return true
-        end
+        if lowerName:find(keyword:lower()) then return true end
     end
     return false
 end
@@ -110,7 +98,6 @@ local function AddRealFruitESPOnly(fruitName, fruitInstance)
         or (fruitInstance:IsA("BasePart") and fruitInstance)
 
     if not rootPart then return end
-    
     if fruitInstance:FindFirstChild("FruitESP") then return end
 
     local highlight = Instance.new("Highlight")
@@ -146,9 +133,7 @@ local function CheckIsFruit(item)
 
     for _, fruitBaseName in ipairs(Update30Fruits) do
         if item.Name:find(fruitBaseName) then
-            if item:IsA("Tool") then
-                return true
-            end
+            if item:IsA("Tool") then return true end
             if item:IsA("Model") and (item:FindFirstChild("Handle") or item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")) then
                 if item.Parent == Workspace or (item.Parent and item.Parent.Name == "Map") then
                     return true
@@ -263,7 +248,7 @@ local function equipToolType(toolType)
     local currentTool = char:FindFirstChildOfClass("Tool")
     if currentTool then
         local tip = currentTool.ToolTip:lower()
-        if tip == toolType.lower() or (toolType == "Fruit" and tip:find("blox fruit")) then
+        if tip == toolType:lower() or (toolType == "Fruit" and tip:find("blox fruit")) then
             return true
         end
     end
@@ -504,7 +489,6 @@ local function manageRaidFlight()
     end)
 end
 
--- Water Platform System for Walk on Water
 local waterPlatform = nil
 local function manageWaterPlatform()
     pcall(function()
@@ -515,14 +499,13 @@ local function manageWaterPlatform()
                 if not waterPlatform or not waterPlatform.Parent then
                     waterPlatform = Instance.new("Part")
                     waterPlatform.Name = "WaterSafetyPlatform"
-                    waterPlatform.Size = Vector3.new(45, 1, 45)
+                    waterPlatform.Size = Vector3.new(50, 1, 50)
                     waterPlatform.Anchored = true
                     waterPlatform.CanCollide = true
-                    waterPlatform.Transparency = 1 -- Completely invisible
+                    waterPlatform.Transparency = 1
                     waterPlatform.Parent = Workspace
                 end
                 
-                -- Check if player is near or below sea level (Blox Fruits water surface is usually around Y = 0 or Y = 3)
                 if root.Position.Y <= 15 then
                     waterPlatform.Position = Vector3.new(root.Position.X, 3, root.Position.Z)
                 else
@@ -598,7 +581,13 @@ FOVCircle.Transparency = 0.8
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
+
+pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+end
 
 local OpenButton = Instance.new("ImageButton")
 OpenButton.Size = UDim2.new(0, 45, 0, 45)
@@ -1062,7 +1051,8 @@ local espFolder = CoreGui:FindFirstChild("AlwaysActivePlayerESP")
 if not espFolder then
     espFolder = Instance.new("Folder")
     espFolder.Name = "AlwaysActivePlayerESP"
-    espFolder.Parent = CoreGui
+    pcall(function() espFolder.Parent = CoreGui end)
+    if not espFolder.Parent then espFolder.Parent = ScreenGui end
 end
 
 task.spawn(function()
@@ -1366,7 +1356,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.NpcCamActive = false
                 CamStates.LockedNpcTarget = nil
             else
-                let target = findAimedNpcTarget()
+                local target = findAimedNpcTarget()
                 if target then
                     CamStates.NpcCamActive = true
                     CamStates.LockedNpcTarget = target
