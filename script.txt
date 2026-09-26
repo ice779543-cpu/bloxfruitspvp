@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Complete Script with Full-Body Hitbox Expander up to 100 Studs)
+-- Blox Fruits Hub (Full Script with Fixed Accessories, PvP Hitbox Expander, & Organized Tabs)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -55,7 +55,13 @@ local NpcHitboxSettings = {
     Size = 15
 }
 
+local PlayerHitboxSettings = {
+    Enabled = false,
+    Size = 15
+}
+
 local originalHitboxSizes = {}
+local originalPlayerHitboxSizes = {}
 
 local CamStates = {
     PlayerCamActive = false,
@@ -175,6 +181,18 @@ local function restoreHitboxes()
         end
     end
     originalHitboxSizes = {}
+end
+
+local function restorePlayerHitboxes()
+    for part, data in pairs(originalPlayerHitboxSizes) do
+        if part and part.Parent then
+            part.Size = data.size
+            part.Transparency = data.transparency
+            part.Material = data.material
+            part.CanCollide = data.canCollide
+        end
+    end
+    originalPlayerHitboxSizes = {}
 end
 
 local function isValidRaidEnemy(mob)
@@ -599,11 +617,11 @@ local function createContentScrollingFrame(canvasHeight)
 end
 
 local RaidFrame = createContentScrollingFrame(400)
-local PvPFrame = createContentScrollingFrame(500)
+local PvPFrame = createContentScrollingFrame(580)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
-local NpcFrame = createContentScrollingFrame(300)
+local NpcFrame = createContentScrollingFrame(350)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -851,18 +869,33 @@ local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 
-createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 125, function(val)
+-- PvP Tab Hitbox Expander Controls
+local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 125)
+
+btnPlayerHitbox.MouseButton1Click:Connect(function()
+    PlayerHitboxSettings.Enabled = not PlayerHitboxSettings.Enabled
+    btnPlayerHitbox.Text = PlayerHitboxSettings.Enabled and "ON" or "OFF"
+    btnPlayerHitbox.TextColor3 = PlayerHitboxSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not PlayerHitboxSettings.Enabled then
+        restorePlayerHitboxes()
+    end
+end)
+
+createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Size, 165, function(val)
+    PlayerHitboxSettings.Size = val
+end)
+
+createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 225, function(val)
     FOVSettings.Radius = val
     FOVCircle.Radius = val
 end)
 
-createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 185)
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 225)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 265)
-createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 305)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 345)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 385)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 425)
+createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 285)
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 325)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 365)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 405)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 445)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 485)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -911,7 +944,7 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
--- NPC Tab Controls (Full-Body Hitbox Expander up to 100 Studs)
+-- NPC Tab Controls (Full-Body Hitbox Expander & Moved NPC Camlock Keybind)
 local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
 
 btnNpcHitbox.MouseButton1Click:Connect(function()
@@ -926,6 +959,8 @@ end)
 createSliderRow(NpcFrame, "Hitbox Size", 1, 100, NpcHitboxSettings.Size, 45, function(val)
     NpcHitboxSettings.Size = val
 end)
+
+createKeybindRow(NpcFrame, "NPC Camlock Key", "NpcCam", 105)
 
 -- Real-time fruit watcher connection
 Workspace.DescendantAdded:Connect(function(obj)
@@ -1060,14 +1095,14 @@ end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
+        -- NPC Hitbox Expander (Excludes Accessories so hats/capes don't blow up)
         if NpcHitboxSettings.Enabled then
             local enemiesFolder = Workspace:FindFirstChild("Enemies")
             if enemiesFolder then
                 for _, mob in ipairs(enemiesFolder:GetChildren()) do
                     if isValidRaidEnemy(mob) then
-                        -- Scales all body parts so Sword, Melee, and Gun M1 attacks all register cleanly
                         for _, part in ipairs(mob:GetDescendants()) do
-                            if part:IsA("BasePart") then
+                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
                                 if not originalHitboxSizes[part] then
                                     originalHitboxSizes[part] = {
                                         size = part.Size,
@@ -1089,6 +1124,37 @@ RunService.RenderStepped:Connect(function()
             end
         else
             restoreHitboxes()
+        end
+
+        -- Player Hitbox Expander (PvP Tab - Excludes Accessories)
+        if PlayerHitboxSettings.Enabled then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= localPlayer and plr.Character then
+                    local hum = plr.Character:FindFirstChild("Humanoid")
+                    if hum and hum.Health > 0 then
+                        for _, part in ipairs(plr.Character:GetDescendants()) do
+                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
+                                if not originalPlayerHitboxSizes[part] then
+                                    originalPlayerHitboxSizes[part] = {
+                                        size = part.Size,
+                                        transparency = part.Transparency,
+                                        material = part.Material,
+                                        canCollide = part.CanCollide
+                                    }
+                                end
+                                local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
+                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
+                                part.Transparency = 0.7
+                                part.Material = Enum.Material.Neon
+                                part.Color = Color3.fromRGB(100, 150, 255)
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end
+            end
+        else
+            restorePlayerHitboxes()
         end
 
         if AutoRaidSettings.Enabled then
@@ -1275,8 +1341,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 end
             end
             if closestRoot and root then
-                local behindCFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
-                root.CFrame = CFrame.new(behindCFrame.Position, closestRoot.Position)
+                local behindCFactor = closestRoot.CFrame * CFrame.new(0, 0, 4)
+                root.CFrame = CFrame.new(behindCFactor.Position, closestRoot.Position)
             end
         elseif input.KeyCode == Keybinds.SuperJump and root then
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
