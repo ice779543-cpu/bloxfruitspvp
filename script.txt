@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc Tab with Auto V3/V4/Aura)
+-- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc & Fruit Notifier Tabs)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -46,6 +46,10 @@ local MiscSettings = {
     AutoAura = false
 }
 
+local FruitNotifierSettings = {
+    Enabled = false
+}
+
 local CamStates = {
     PlayerCamActive = false,
     NpcCamActive = false,
@@ -63,6 +67,96 @@ local MacroActions = {
 
 local MacroSelections = { "None", "None", "None", "None", "None", "None", "None", "None" }
 local MacroDelays = { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 }
+
+local Update30Fruits = {
+    "Magnet", "Dragon", "Gas", "Yeti", "Tiger", "Kitsune", "Dough", "T-Rex", 
+    "Mammoth", "Spirit", "Control", "Shadow", "Venom", "Blizzard", "Portal", 
+    "Lightning", "Sound", "Buddha", "Phoenix", "Quake", "Love", "Spider", 
+    "Pain", "Gravity", "Magma", "Creation", "Rubber", "Light", "Ice", "Sand", 
+    "Dark", "Diamond", "Ghost", "Barrier", "Flame", "Falcon", "Eagle", "Smoke", 
+    "Bomb", "Spike", "Spring", "Spin", "Rocket"
+}
+
+local BlacklistKeywords = {
+    "Ship", "Castle", "Arena", "Island", "Sea", "Boss", "Mob", "NPC", "Player"
+}
+
+local function IsBlacklisted(name)
+    local lowerName = name:lower()
+    for _, keyword in ipairs(BlacklistKeywords) do
+        if lowerName:find(keyword:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+local function AddRealFruitESPOnly(fruitName, fruitInstance)
+    if IsBlacklisted(fruitName) then return end
+
+    local rootPart = fruitInstance:IsA("Model") and (fruitInstance.PrimaryPart or fruitInstance:FindFirstChild("Handle") or fruitInstance:FindFirstChildWhichIsA("BasePart")) 
+        or (fruitInstance:IsA("BasePart") and fruitInstance)
+
+    if not rootPart then return end
+    
+    if fruitInstance:FindFirstChild("FruitESP") then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "FruitESP"
+    highlight.FillColor = Color3.fromRGB(88, 101, 242)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.4
+    highlight.OutlineTransparency = 0
+    highlight.Parent = fruitInstance
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "FruitBillboard"
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = math.huge
+    billboard.Adornee = rootPart
+    billboard.Parent = fruitInstance
+
+    local tagLabel = Instance.new("TextLabel")
+    tagLabel.Size = UDim2.new(1, 0, 1, 0)
+    tagLabel.BackgroundTransparency = 1
+    tagLabel.Font = Enum.Font.GothamBold
+    tagLabel.Text = fruitName
+    tagLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tagLabel.TextSize = 14
+    tagLabel.TextStrokeTransparency = 0
+    tagLabel.Parent = billboard
+end
+
+local function CheckIsFruit(item)
+    if IsBlacklisted(item.Name) then return false end
+
+    for _, fruitBaseName in ipairs(Update30Fruits) do
+        if item.Name:find(fruitBaseName) then
+            if item:IsA("Tool") then
+                return true
+            end
+            if item:IsA("Model") and (item:FindFirstChild("Handle") or item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")) then
+                if item.Parent == Workspace or (item.Parent and item.Parent.Name == "Map") then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function ClearAllFruitESP()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        pcall(function()
+            local esp = obj:FindFirstChild("FruitESP")
+            if esp then esp:Destroy() end
+            local bb = obj:FindFirstChild("FruitBillboard")
+            if bb then bb:Destroy() end
+        end)
+    end
+end
 
 local function isValidRaidEnemy(mob)
     local success, result = pcall(function()
@@ -187,7 +281,6 @@ local function equipToolType(toolType)
     return false
 end
 
--- Ultra-Reliable Multi-Move Sequential Macro Handler
 local isMacroRunning = false
 local function runMacroSequence()
     if isMacroRunning then return end
@@ -490,6 +583,7 @@ local RaidFrame = createContentScrollingFrame(400)
 local PvPFrame = createContentScrollingFrame(500)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(300)
+local FruitFrame = createContentScrollingFrame(300)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -508,6 +602,7 @@ local function createTabButton(name, yPos, targetFrame)
         PvPFrame.Visible = false
         MacroFrame.Visible = false
         MiscFrame.Visible = false
+        FruitFrame.Visible = false
         targetFrame.Visible = true
     end)
     return btn
@@ -517,6 +612,7 @@ createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
 createTabButton("Macro", 110, MacroFrame)
 createTabButton("Misc", 160, MiscFrame)
+createTabButton("Fruit Notifier", 210, FruitFrame)
 
 RaidFrame.Visible = true
 
@@ -774,6 +870,35 @@ btnAutoAura.MouseButton1Click:Connect(function()
     btnAutoAura.TextColor3 = MiscSettings.AutoAura and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
+-- Fruit Notifier Tab Controls
+local btnFruitNotifier = createToggleRow(FruitFrame, "Fruit Notifier ESP", FruitNotifierSettings.Enabled, 5)
+
+btnFruitNotifier.MouseButton1Click:Connect(function()
+    FruitNotifierSettings.Enabled = not FruitNotifierSettings.Enabled
+    btnFruitNotifier.Text = FruitNotifierSettings.Enabled and "ON" or "OFF"
+    btnFruitNotifier.TextColor3 = FruitNotifierSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    
+    if FruitNotifierSettings.Enabled then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if CheckIsFruit(obj) then
+                AddRealFruitESPOnly(obj.Name, obj)
+            end
+        end
+    else
+        ClearAllFruitESP()
+    end
+end)
+
+-- Real-time fruit watcher connection
+Workspace.DescendantAdded:Connect(function(obj)
+    if FruitNotifierSettings.Enabled then
+        task.wait(0.5)
+        if CheckIsFruit(obj) then
+            AddRealFruitESPOnly(obj.Name, obj)
+        end
+    end
+end)
+
 btnFOVCircle.MouseButton1Click:Connect(function()
     FOVSettings.Enabled = not FOVSettings.Enabled
     btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
@@ -818,7 +943,6 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
--- Fast Attack Loop
 task.spawn(function()
     while true do
         pcall(function()
@@ -865,37 +989,26 @@ task.spawn(function()
     end
 end)
 
--- Misc Automation Loop (Auto V3, Auto V4, Auto Aura)
 task.spawn(function()
     while true do
         pcall(function()
             local char = localPlayer.Character
             if char then
-                -- Auto Aura Check (Sends 'J' key if Buso effect isn't found on character)
                 if MiscSettings.AutoAura then
                     local attrs = char:FindFirstChild("HasBuso") or char:FindFirstChild("Buso")
                     if not attrs then
-                        local hasBusoActive = false
-                        for _, v in ipairs(char:GetChildren()) do
-                            if v:IsA("BasePart") and v.Color ~= Color3.new(0,0,0) and v.Material == Enum.Material.Glass then
-                                -- Basic heuristic check or use remote, using VirtualInput for safety
-                            end
-                        end
-                        -- Send J key toggle for aura
                         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.J, false, game)
                         task.wait(0.05)
                         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.J, false, game)
                     end
                 end
 
-                -- Auto V3 (Key T)
                 if MiscSettings.AutoV3 then
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
                     task.wait(0.05)
                     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
                 end
 
-                -- Auto V4 Transformation (Key Y when ready)
                 if MiscSettings.AutoV4 then
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Y, false, game)
                     task.wait(0.05)
@@ -903,7 +1016,7 @@ task.spawn(function()
                 end
             end
         end)
-        task.wait(1.5) -- Loop interval to prevent spam overload
+        task.wait(1.5)
     end
 end)
 
