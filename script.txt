@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Optimized Full Script with Fixed NPC Hitbox Expander)
+-- Blox Fruits Hub (Complete Script with Full-Body Hitbox Expander up to 100 Studs)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -911,7 +911,7 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
--- NPC Tab Controls (Optimized Hitbox Expander)
+-- NPC Tab Controls (Full-Body Hitbox Expander up to 100 Studs)
 local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
 
 btnNpcHitbox.MouseButton1Click:Connect(function()
@@ -923,7 +923,7 @@ btnNpcHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
-createSliderRow(NpcFrame, "Hitbox Size", 1, 50, NpcHitboxSettings.Size, 45, function(val)
+createSliderRow(NpcFrame, "Hitbox Size", 1, 100, NpcHitboxSettings.Size, 45, function(val)
     NpcHitboxSettings.Size = val
 end)
 
@@ -1065,22 +1065,24 @@ RunService.RenderStepped:Connect(function()
             if enemiesFolder then
                 for _, mob in ipairs(enemiesFolder:GetChildren()) do
                     if isValidRaidEnemy(mob) then
-                        local rootPart = mob:FindFirstChild("HumanoidRootPart") or mob.PrimaryPart
-                        if rootPart and rootPart:IsA("BasePart") then
-                            if not originalHitboxSizes[rootPart] then
-                                originalHitboxSizes[rootPart] = {
-                                    size = rootPart.Size,
-                                    transparency = rootPart.Transparency,
-                                    material = rootPart.Material,
-                                    canCollide = rootPart.CanCollide
-                                }
+                        -- Scales all body parts so Sword, Melee, and Gun M1 attacks all register cleanly
+                        for _, part in ipairs(mob:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                if not originalHitboxSizes[part] then
+                                    originalHitboxSizes[part] = {
+                                        size = part.Size,
+                                        transparency = part.Transparency,
+                                        material = part.Material,
+                                        canCollide = part.CanCollide
+                                    }
+                                end
+                                local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
+                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
+                                part.Transparency = 0.7
+                                part.Material = Enum.Material.Neon
+                                part.Color = Color3.fromRGB(255, 100, 100)
+                                part.CanCollide = false
                             end
-                            local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 50)
-                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
-                            rootPart.Transparency = 0.6
-                            rootPart.Material = Enum.Material.Neon
-                            rootPart.Color = Color3.fromRGB(255, 100, 100)
-                            rootPart.CanCollide = false
                         end
                     end
                 end
