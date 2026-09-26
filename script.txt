@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Fully Fixed Auto Clicker for Swords & Melee)
+-- Blox Fruits Hub (Adjusted Auto Clicker Speed for Swords & Melee)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -54,7 +54,7 @@ local Keybinds = {
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
-local AutoClickerSettings = { Enabled = false, Delay = 0.05 }
+local AutoClickerSettings = { Enabled = false, Delay = 0.15 } -- Balanced delay so swords/melee register swings
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
@@ -658,7 +658,6 @@ task.spawn(function()
                                 local root = plr.Character:FindFirstChild("HumanoidRootPart")
                                 local hum = plr.Character:FindFirstChild("Humanoid")
                                 if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
-                                    table.init(targetsList, {Head = head, Root = root}) -- Fixed table insert fallback
                                     table.insert(targetsList, {Head = head, Root = root})
                                 end
                             end
@@ -675,7 +674,7 @@ task.spawn(function()
     end
 end)
 
--- Fully Fixed Universal Auto Clicker Loop (Supports Swords, Fighting Styles, and Fruits)
+-- Balanced Universal Auto Clicker Loop (Optimized for Swords & Fighting Styles)
 task.spawn(function()
     while true do
         pcall(function()
@@ -684,10 +683,8 @@ task.spawn(function()
                 if char then
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
-                        -- 1. Try standard tool activation method
                         pcall(function() tool:Activate() end)
                         
-                        -- 2. Check and fire any sub-remotes embedded inside the sword/fighting style
                         for _, remote in ipairs(tool:GetDescendants()) do
                             if remote:IsA("RemoteEvent") and (remote.Name:lower():find("attack") or remote.Name:lower():find("click") or remote.Name:lower():find("hit")) then
                                 pcall(function() remote:FireServer(camera.CFrame.LookVector, 1) end)
@@ -695,15 +692,13 @@ task.spawn(function()
                         end
                     end
                     
-                    -- 3. Force Global Game Attack Remote
                     local regAttack = getRegisterAttack()
                     if regAttack and typeof(regAttack.FireServer) == "function" then
                         regAttack:FireServer(0)
                     end
                     
-                    -- 4. Simulate Virtual User Mouse Click down/up
                     VirtualUser:Button1Down(Vector2.new(0, 0), camera.CFrame)
-                    task.wait(0.01)
+                    task.wait(0.02)
                     VirtualUser:Button1Up(Vector2.new(0, 0), camera.CFrame)
                 end
             end
