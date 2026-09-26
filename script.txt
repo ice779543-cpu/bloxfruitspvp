@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros, Misc, Fruit Notifier & NPC Tabs)
+-- Blox Fruits Hub (Optimized Full Script with Fixed NPC Hitbox Expander)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -52,7 +52,7 @@ local FruitNotifierSettings = {
 
 local NpcHitboxSettings = {
     Enabled = false,
-    Size = 5
+    Size = 15
 }
 
 local originalHitboxSizes = {}
@@ -163,16 +163,6 @@ local function ClearAllFruitESP()
             if bb then bb:Destroy() end
         end)
     end
-end
-
-local function isNPCModel(model)
-    if not model:FindFirstChildOfClass("Humanoid") then return false end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character == model then
-            return false
-        end
-    end
-    return true
 end
 
 local function restoreHitboxes()
@@ -921,7 +911,7 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
--- NPC Tab Controls (Hitbox Expander)
+-- NPC Tab Controls (Optimized Hitbox Expander)
 local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
 
 btnNpcHitbox.MouseButton1Click:Connect(function()
@@ -933,7 +923,7 @@ btnNpcHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
-createSliderRow(NpcFrame, "Hitbox Size", 1, 100, NpcHitboxSettings.Size, 45, function(val)
+createSliderRow(NpcFrame, "Hitbox Size", 1, 50, NpcHitboxSettings.Size, 45, function(val)
     NpcHitboxSettings.Size = val
 end)
 
@@ -1071,24 +1061,27 @@ end)
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if NpcHitboxSettings.Enabled then
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if obj:IsA("Model") and isNPCModel(obj) then
-                    local rootPart = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
-                    local hum = obj:FindFirstChildOfClass("Humanoid")
-                    if rootPart and rootPart:IsA("BasePart") and hum and hum.Health > 0 then
-                        if not originalHitboxSizes[rootPart] then
-                            originalHitboxSizes[rootPart] = {
-                                size = rootPart.Size,
-                                transparency = rootPart.Transparency,
-                                material = rootPart.Material,
-                                canCollide = rootPart.CanCollide
-                            }
+            local enemiesFolder = Workspace:FindFirstChild("Enemies")
+            if enemiesFolder then
+                for _, mob in ipairs(enemiesFolder:GetChildren()) do
+                    if isValidRaidEnemy(mob) then
+                        local rootPart = mob:FindFirstChild("HumanoidRootPart") or mob.PrimaryPart
+                        if rootPart and rootPart:IsA("BasePart") then
+                            if not originalHitboxSizes[rootPart] then
+                                originalHitboxSizes[rootPart] = {
+                                    size = rootPart.Size,
+                                    transparency = rootPart.Transparency,
+                                    material = rootPart.Material,
+                                    canCollide = rootPart.CanCollide
+                                }
+                            end
+                            local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 50)
+                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
+                            rootPart.Transparency = 0.6
+                            rootPart.Material = Enum.Material.Neon
+                            rootPart.Color = Color3.fromRGB(255, 100, 100)
+                            rootPart.CanCollide = false
                         end
-                        rootPart.Size = Vector3.new(NpcHitboxSettings.Size, NpcHitboxSettings.Size, NpcHitboxSettings.Size)
-                        rootPart.Transparency = 0.5
-                        rootPart.Material = Enum.Material.Neon
-                        rootPart.Color = Color3.fromRGB(255, 100, 100)
-                        rootPart.CanCollide = false
                     end
                 end
             end
