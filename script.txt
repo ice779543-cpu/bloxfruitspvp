@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Fixed Macros, Working Player/NPC Camlocks, & Custom Open Button)
+-- Blox Fruits Hub (Aim-Based Camlocks, Key 'N' Menu Toggle, Saved Macros & Keybinds)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -44,11 +44,11 @@ task.wait(0.2)
 
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
-    NpcCam = Enum.KeyCode.N,
+    NpcCam = Enum.KeyCode.J,
     SuperJump = Enum.KeyCode.L,
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
-    MenuToggle = Enum.KeyCode.M,
+    MenuToggle = Enum.KeyCode.N, -- Updated default to N
     MenuHide = Enum.KeyCode.B,
     AimbotKey = Enum.KeyCode.C,
     MacroKey = Enum.KeyCode.V
@@ -59,7 +59,6 @@ local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
 
--- Camlock toggles and tracking state
 local CamStates = {
     PlayerCamActive = false,
     NpcCamActive = false
@@ -212,7 +211,6 @@ local function runMacroSequence()
                             task.wait(0.05)
                             VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
                         end)
-                        -- Increased wait interval between actions so consecutive moves don't cancel/fail
                         task.wait(0.35)
                     end
                 end
@@ -221,50 +219,58 @@ local function runMacroSequence()
     end)
 end
 
-local function findClosestPlayerTarget()
-    local closestRoot = nil
-    local shortestDist = math.huge
-    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
+-- Finds the player closest to the center of your screen/crosshair
+local function findAimedPlayerTarget()
+    local bestTarget = nil
+    local shortestScreenDist = math.huge
+    local screenSize = camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
 
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= localPlayer and plr.Character then
-            local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
             local hum = plr.Character:FindFirstChild("Humanoid")
-            if enemyRoot and hum and hum.Health > 0 then
-                local dist = (enemyRoot.Position - myRoot.Position).Magnitude
-                if dist < shortestDist then
-                    shortestDist = dist
-                    closestRoot = enemyRoot
-                end
-            end
-        end
-    end
-    return closestRoot
-end
-
-local function findClosestNpcTarget()
-    local closestRoot = nil
-    local shortestDist = math.huge
-    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
-
-    local enemiesFolder = Workspace:FindFirstChild("Enemies")
-    if enemiesFolder then
-        for _, mob in ipairs(enemiesFolder:GetChildren()) do
-            if isValidRaidEnemy(mob) then
-                local enemyRoot = mob:FindFirstChild("HumanoidRootPart")
-                if enemyRoot then
-                    local dist = (enemyRoot.Position - myRoot.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestRoot = enemyRoot
+            if root and hum and hum.Health > 0 then
+                local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                if onScreen then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if screenDist < shortestScreenDist then
+                        shortestScreenDist = screenDist
+                        bestTarget = root
                     end
                 end
             end
         end
     end
-    return closestRoot
+    return bestTarget
+end
+
+-- Finds the NPC closest to the center of your screen/crosshair
+local function findAimedNpcTarget()
+    local bestTarget = nil
+    local shortestScreenDist = math.huge
+    local screenSize = camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidRaidEnemy(mob) then
+                local root = mob:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if screenDist < shortestScreenDist then
+                            shortestScreenDist = screenDist
+                            bestTarget = root
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget
 end
 
 local function findCurrentRaidIsland(rootPos)
@@ -829,14 +835,14 @@ RunService.RenderStepped:Connect(function()
             manageRaidFlight()
         end
 
-        -- Handle Player Camlock & NPC Camlock execution loops
+        -- Aim-Based Camlock execution loops
         if CamStates.PlayerCamActive then
-            local targetRoot = findClosestPlayerTarget()
+            local targetRoot = findAimedPlayerTarget()
             if targetRoot then
                 camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
             end
         elseif CamStates.NpcCamActive then
-            local targetRoot = findClosestNpcTarget()
+            local targetRoot = findAimedNpcTarget()
             if targetRoot then
                 camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
             end
