@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Players-Only FOV Aimbot + Fast Attack)
+-- Blox Fruits Hub (Fixed: Sword Moves, Fruit Auto-Equip, & M1 Loop Bug)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -49,14 +50,23 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     MenuToggle = Enum.KeyCode.M,
     MenuHide = Enum.KeyCode.B,
-    AimbotKey = Enum.KeyCode.C
+    AimbotKey = Enum.KeyCode.C,
+    MacroKey = Enum.KeyCode.V
 }
 
 local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
-local CombatStates = { LockedTarget = nil }
+
+local MacroActions = {
+    "None", 
+    "Sword Z", "Sword X", 
+    "Fruit Z", "Fruit X", "Fruit C", "Fruit V", "Fruit F", 
+    "Gun Z", "Gun X", 
+    "Melee Z", "Melee X", "Melee C"
+}
+local MacroSelections = { "None", "None", "None", "None", "None", "None", "None", "None" }
 
 local function isValidRaidEnemy(mob)
     local success, result = pcall(function()
@@ -115,6 +125,89 @@ local function executeMultiAttack(targetsList)
             end
             if #hitParams > 0 then
                 regHit:FireServer(targetsList[1].Head, hitParams)
+            end
+        end
+    end)
+end
+
+local function equipToolType(toolType)
+    local char = localPlayer.Character
+    if not char then return end
+
+    local currentTool = char:FindFirstChildOfClass("Tool")
+    if currentTool then
+        local tip = currentTool.ToolTip:lower()
+        if tip == toolType.lower() or (toolType == "Fruit" and tip:find("blox fruit")) then
+            return
+        end
+    end
+
+    local foundTool = nil
+    local containerList = {localPlayer.Backpack, char}
+
+    for _, container in ipairs(containerList) do
+        for _, t in ipairs(container:GetChildren()) do
+            if t:IsA("Tool") then
+                local tip = t.ToolTip:lower()
+                local name = t.Name:lower()
+                
+                if toolType == "Sword" and (tip == "sword" or name:find("sword")) then
+                    foundTool = t; break
+                elseif toolType == "Fruit" and (tip:find("blox fruit") or tip == "fruit" or name:find("fruit") or name:find("portal") or name:find("dough") or name:find("kitsune") or name:find("leopard") or name:find("trex")) then
+                    foundTool = t; break
+                elseif toolType == "Gun" and (tip == "gun" or name:find("gun") or name:find("rifle") or name:find("musket") or name:find("bazooka")) then
+                    foundTool = t; break
+                elseif toolType == "Melee" and (tip == "blox fighting style" or tip == "melee" or name:find("fighting") or name:find("step") or name:find("claw")) then
+                    foundTool = t; break
+                end
+            end
+        end
+        if foundTool then break end
+    end
+
+    if not foundTool and toolType == "Melee" then
+        for _, container in ipairs(containerList) do
+            for _, t in ipairs(container:GetChildren()) do
+                if t:IsA("Tool") and (t.ToolTip == "" or t.ToolTip:lower() == "melee") then
+                    foundTool = t; break
+                end
+            end
+            if foundTool then break end
+        end
+    end
+
+    if foundTool then
+        if foundTool.Parent == localPlayer.Backpack then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:EquipTool(foundTool)
+                task.wait(0.2)
+            end
+        end
+    end
+end
+
+local function runMacroSequence()
+    task.spawn(function()
+        for _, actionStr in ipairs(MacroSelections) do
+            if actionStr and actionStr ~= "None" then
+                local spacePos = actionStr:find(" ")
+                if spacePos then
+                    local category = actionStr:sub(1, spacePos - 1)
+                    local moveKey = actionStr:sub(spacePos + 1):upper()
+
+                    equipToolType(category)
+
+                    local keyCode = Enum.KeyCode[moveKey]
+                    if keyCode then
+                        pcall(function()
+                            VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                            task.wait(0.06)
+                            VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+                        end)
+                        task.wait(0.25)
+                    end
+                end
             end
         end
     end)
@@ -214,36 +307,6 @@ local function manageRaidFlight()
     end)
 end
 
-local function teleportBehindEnemy()
-    pcall(function()
-        local char = localPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-
-        local closestRoot = nil
-        local shortestDist = math.huge
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and plr.Character then
-                local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                local hum = plr.Character:FindFirstChild("Humanoid")
-                if enemyRoot and hum and hum.Health > 0 then
-                    local dist = (enemyRoot.Position - root.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestRoot = enemyRoot
-                    end
-                end
-            end
-        end
-
-        if closestRoot then
-            local behindCFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
-            root.CFrame = CFrame.new(behindCFrame.Position, closestRoot.Position)
-        end
-    end)
-end
-
 local function saveKeybinds()
     pcall(function()
         if writefile and HttpService then
@@ -268,7 +331,6 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
--- Create Rainbow FOV Circle Drawing
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Filled = false
@@ -332,7 +394,7 @@ local function createContentScrollingFrame()
     local sf = Instance.new("ScrollingFrame")
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
-    sf.CanvasSize = UDim2.new(0, 0, 0, 450)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 500)
     sf.ScrollBarThickness = 4
     sf.Visible = false
     sf.Parent = ContentPanel
@@ -341,6 +403,7 @@ end
 
 local RaidFrame = createContentScrollingFrame()
 local PvPFrame = createContentScrollingFrame()
+local MacroFrame = createContentScrollingFrame()
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -357,6 +420,7 @@ local function createTabButton(name, yPos, targetFrame)
     btn.MouseButton1Click:Connect(function()
         RaidFrame.Visible = false
         PvPFrame.Visible = false
+        MacroFrame.Visible = false
         targetFrame.Visible = true
     end)
     return btn
@@ -364,6 +428,7 @@ end
 
 createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
+createTabButton("Macro", 110, MacroFrame)
 
 RaidFrame.Visible = true
 
@@ -504,6 +569,48 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
+local function createMacroBlock(parentFrame, index, yPos)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -10, 0, 34)
+    Row.Position = UDim2.new(0, 5, 0, yPos)
+    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.Parent = parentFrame
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.4, 0, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 12
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = "Action Block " .. index
+    Label.Parent = Row
+
+    local SelectButton = Instance.new("TextButton")
+    SelectButton.Size = UDim2.new(0, 130, 0, 26)
+    SelectButton.Position = UDim2.new(1, -135, 0.5, -13)
+    SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SelectButton.Font = Enum.Font.SourceSansBold
+    SelectButton.TextSize = 12
+    SelectButton.Text = MacroSelections[index]
+    SelectButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    SelectButton.Parent = Row
+    Instance.new("UICorner", SelectButton).CornerRadius = UDim.new(0, 4)
+
+    SelectButton.MouseButton1Click:Connect(function()
+        local currentIndex = 1
+        for i, val in ipairs(MacroActions) do
+            if val == MacroSelections[index] then currentIndex = i break end
+        end
+        currentIndex = currentIndex + 1
+        if currentIndex > #MacroActions then currentIndex = 1 end
+        MacroSelections[index] = MacroActions[currentIndex]
+        SelectButton.Text = MacroSelections[index]
+    end)
+end
+
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
@@ -521,6 +628,11 @@ createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 265)
 createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 305)
 createKeybindRow(PvPFrame, "Long Dash", "LongDash", 345)
 createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 385)
+
+createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
+for i = 1, 8 do
+    createMacroBlock(MacroFrame, i, 45 + ((i - 1) * 40))
+end
 
 btnFOVCircle.MouseButton1Click:Connect(function()
     FOVSettings.Enabled = not FOVSettings.Enabled
@@ -577,7 +689,6 @@ local function getTargetInsideFOV()
 
     if not FOVSettings.Enabled then return nil end
 
-    -- STRICTLY TARGET PLAYERS ONLY (NPCs removed)
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= localPlayer and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -598,7 +709,6 @@ local function getTargetInsideFOV()
     return bestTarget
 end
 
--- Fast Attack Loop Task (Keeps working for both enemies/mobs and players)
 task.spawn(function()
     while true do
         pcall(function()
@@ -730,20 +840,31 @@ UserInputService.InputBegan:Connect(function(input, gp)
             MainFrame.Visible = not MainFrame.Visible
         elseif input.KeyCode == Keybinds.MenuHide then
             ScreenGui.Enabled = not ScreenGui.Enabled
+        elseif input.KeyCode == Keybinds.MacroKey then
+            runMacroSequence()
         elseif input.KeyCode == Keybinds.AimbotKey then
             FOVSettings.Enabled = not FOVSettings.Enabled
             btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
             btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-        elseif input.KeyCode == Keybinds.PlayerCam then
-            CombatStates.PlayerCamActive = not CombatStates.PlayerCamActive
-            if CombatStates.PlayerCamActive then CombatStates.NpcCamActive = false end
-            CombatStates.LockedTarget = nil
-        elseif input.KeyCode == Keybinds.NpcCam then
-            CombatStates.NpcCamActive = not CombatStates.NpcCamActive
-            if CombatStates.NpcCamActive then CombatStates.PlayerCamActive = false end
-            CombatStates.LockedTarget = nil
         elseif input.KeyCode == Keybinds.TpEnemy then
-            teleportBehindEnemy()
+            local closestRoot = nil
+            local shortestDist = math.huge
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= localPlayer and plr.Character then
+                    local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if enemyRoot and root then
+                        local dist = (enemyRoot.Position - root.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestRoot = enemyRoot
+                        end
+                    end
+                end
+            end
+            if closestRoot and root then
+                local behindCFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
+                root.CFrame = CFrame.new(behindCFrame.Position, closestRoot.Position)
+            end
         elseif input.KeyCode == Keybinds.SuperJump and root then
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
         elseif input.KeyCode == Keybinds.LongDash and root then
