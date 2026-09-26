@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Fixed: Sword Moves, Fruit Auto-Equip, & M1 Loop Bug)
+-- Blox Fruits Hub (Custom Image Open Button, Fixed Sword Moves, Fruit Auto-Equip, & M1 Bug)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -343,17 +343,14 @@ ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
-local OpenButton = Instance.new("TextButton")
-OpenButton.Size = UDim2.new(0, 160, 0, 45)
+local OpenButton = Instance.new("ImageButton")
+OpenButton.Size = UDim2.new(0, 45, 0, 45)
 OpenButton.Position = UDim2.new(0, 20, 0, 100)
 OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-OpenButton.TextColor3 = Color3.fromRGB(0, 255, 128)
-OpenButton.TextSize = 15
-OpenButton.Font = Enum.Font.SourceSansBold
-OpenButton.Text = "Toggle Menu [M]"
+OpenButton.Image = "rbxassetid://10511856020"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
-Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 8)
 
 local frameWidth, frameHeight = 560, 420
 local MainFrame = Instance.new("Frame")
@@ -846,6 +843,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
             FOVSettings.Enabled = not FOVSettings.Enabled
             btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
             btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+        elseif input.KeyCode == Keybinds.PlayerCam then
+            -- Handled in states
+        elseif input.KeyCode == Keybinds.NpcCam then
+            -- Handled in states
         elseif input.KeyCode == Keybinds.TpEnemy then
             local closestRoot = nil
             local shortestDist = math.huge
