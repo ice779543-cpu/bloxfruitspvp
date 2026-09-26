@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Updated without Player Tabs & Auto Clicker Fixed)
+-- Blox Fruits Hub (Fixed Auto Clicker & No Player Tabs)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,7 +7,6 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -674,16 +673,26 @@ task.spawn(function()
     end
 end)
 
--- Auto Clicker Loop
+-- Fixed Auto Clicker Loop (Fires Tool functions/Remotes directly)
 task.spawn(function()
     while true do
         pcall(function()
             if AutoClickerSettings.Enabled then
                 local char = localPlayer.Character
-                if char and char:FindFirstChildOfClass("Tool") then
-                    VirtualUser:Button1Down(Vector2.new(0, 0), camera.CFrame)
-                    task.wait(0.02)
-                    VirtualUser:Button1Up(Vector2.new(0, 0), camera.CFrame)
+                if char then
+                    local weapon = char:FindFirstChildOfClass("Tool")
+                    if weapon then
+                        -- Method 1: Fire internal attack remotes if they exist
+                        local attackRemote = weapon:FindFirstChild("LeftClickRemote") or weapon:FindFirstChild("ToolAttack") or weapon:FindFirstChild("AttackRemote")
+                        if attackRemote and typeof(attackRemote.FireServer) == "function" then
+                            attackRemote:FireServer(camera.CFrame.LookVector, 1)
+                        end
+                        
+                        -- Method 2: Invoke tool's activation function if available
+                        if typeof(weapon.Activate) == "function" then
+                            pcall(function() weapon:Activate() end)
+                        end
+                    end
                 end
             end
         end)
