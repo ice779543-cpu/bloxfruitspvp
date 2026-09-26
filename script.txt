@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Adjusted Auto Clicker Speed for Swords & Melee)
+-- Blox Fruits Hub (Fully Combined with Fixed M1 Attack Loop)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -54,7 +54,7 @@ local Keybinds = {
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
-local AutoClickerSettings = { Enabled = false, Delay = 0.15 } -- Balanced delay so swords/melee register swings
+local AutoClickerSettings = { Enabled = false, Delay = 0.15 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
@@ -674,7 +674,7 @@ task.spawn(function()
     end
 end)
 
--- Balanced Universal Auto Clicker Loop (Optimized for Swords & Fighting Styles)
+-- Fixed Universal Auto Clicker Loop (Optimized to fire weapon Remotes directly)
 task.spawn(function()
     while true do
         pcall(function()
@@ -683,23 +683,25 @@ task.spawn(function()
                 if char then
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
-                        pcall(function() tool:Activate() end)
+                        -- Try firing direct tool remote events
+                        local leftClickRemote = tool:FindFirstChild("LeftClickRemote") or tool:FindFirstChild("AttackRemote") or tool:FindFirstChild("ToolAttack")
+                        if leftClickRemote and typeof(leftClickRemote.FireServer) == "function" then
+                            leftClickRemote:FireServer(camera.CFrame.LookVector, 1)
+                        end
                         
                         for _, remote in ipairs(tool:GetDescendants()) do
                             if remote:IsA("RemoteEvent") and (remote.Name:lower():find("attack") or remote.Name:lower():find("click") or remote.Name:lower():find("hit")) then
                                 pcall(function() remote:FireServer(camera.CFrame.LookVector, 1) end)
                             end
                         end
+                        
+                        pcall(function() tool:Activate() end)
                     end
                     
                     local regAttack = getRegisterAttack()
                     if regAttack and typeof(regAttack.FireServer) == "function" then
                         regAttack:FireServer(0)
                     end
-                    
-                    VirtualUser:Button1Down(Vector2.new(0, 0), camera.CFrame)
-                    task.wait(0.02)
-                    VirtualUser:Button1Up(Vector2.new(0, 0), camera.CFrame)
                 end
             end
         end)
