@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Fully Combined with Fixed M1 Attack Loop)
+-- Blox Fruits Hub (Updated: Rainbow FOV Circle)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,7 +7,6 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -16,7 +15,7 @@ local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 local function nukeEverythingOld()
     local namesToDestroy = {
         "KeybindSettingUI", "PvPHUDUI", "PlayerESP", "StandalonePlayerESP", 
-        "AlwaysActivePlayerESP", "BloxFruitHub"
+        "AlwaysActivePlayerESP", "BloxFruitHub", "FOVCircleDrawing"
     }
     
     for _, obj in ipairs(CoreGui:GetChildren()) do
@@ -50,14 +49,14 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     MenuToggle = Enum.KeyCode.M,
     MenuHide = Enum.KeyCode.B,
-    AutoClickerKey = Enum.KeyCode.C
+    AimbotKey = Enum.KeyCode.C
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
-local AutoClickerSettings = { Enabled = false, Delay = 0.15 }
+local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
-local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
+local CombatStates = { AimbotActive = false, LockedTarget = nil }
 
 local function getRegisterAttack()
     local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
@@ -269,6 +268,14 @@ local function loadKeybinds()
 end
 loadKeybinds()
 
+-- Create Rainbow FOV Circle Drawing
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Filled = false
+FOVCircle.Thickness = 2
+FOVCircle.Radius = FOVSettings.Radius
+FOVCircle.Transparency = 0.8
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -393,6 +400,59 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     return Button
 end
 
+local function createSliderRow(parentFrame, name, minVal, maxVal, currentVal, yPos, callback)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -10, 0, 50)
+    Row.Position = UDim2.new(0, 5, 0, yPos)
+    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.Parent = parentFrame
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 0, 25)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 13
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = name .. ": " .. currentVal
+    Label.Parent = Row
+
+    local SliderBar = Instance.new("TextButton")
+    SliderBar.Size = UDim2.new(1, -20, 0, 14)
+    SliderBar.Position = UDim2.new(0, 10, 0, 30)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SliderBar.Text = ""
+    SliderBar.Parent = Row
+    Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(0, 4)
+
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((currentVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+    Fill.BorderSizePixel = 0
+    Fill.Parent = SliderBar
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 4)
+
+    local dragging = false
+    SliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = UserInputService:GetMouseLocation()
+            local relX = math.clamp((mousePos.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+            local val = math.floor(minVal + ((maxVal - minVal) * relX))
+            Fill.Size = UDim2.new(relX, 0, 1, 0)
+            Label.Text = name .. ": " .. val
+            callback(val)
+        end
+    end)
+end
+
 local function createKeybindRow(parentFrame, name, keyName, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
@@ -447,16 +507,20 @@ end
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 5)
-local btnAutoClicker = createToggleRow(PvPFrame, "Auto Clicker", AutoClickerSettings.Enabled, 45)
+local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 45)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 
-createKeybindRow(PvPFrame, "Auto Clicker Key", "AutoClickerKey", 125)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 165)
-createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 205)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 245)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 285)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 325)
-createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 365)
+createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 125, function(val)
+    FOVSettings.Radius = val
+    FOVCircle.Radius = val
+end)
+
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 185)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 225)
+createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 265)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 305)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 345)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 385)
 
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
@@ -464,10 +528,11 @@ btnFastAttack.MouseButton1Click:Connect(function()
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
-btnAutoClicker.MouseButton1Click:Connect(function()
-    AutoClickerSettings.Enabled = not AutoClickerSettings.Enabled
-    btnAutoClicker.Text = AutoClickerSettings.Enabled and "ON" or "OFF"
-    btnAutoClicker.TextColor3 = AutoClickerSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+btnFOVCircle.MouseButton1Click:Connect(function()
+    FOVSettings.Enabled = not FOVSettings.Enabled
+    CombatStates.AimbotActive = FOVSettings.Enabled
+    btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
+    btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnAutoRaid.MouseButton1Click:Connect(function()
@@ -502,50 +567,56 @@ if not espFolder then
     espFolder.Parent = CoreGui
 end
 
-local function getClosestTarget(isNpc)
-    local closestTarget = nil
+local function getTargetInsideFOV()
+    local bestTarget = nil
     local shortestDist = math.huge
     local screenSize = camera.ViewportSize
     local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
 
-    if isNpc then
-        local enemiesFolder = Workspace:FindFirstChild("Enemies")
-        if enemiesFolder then
-            for _, mob in ipairs(enemiesFolder:GetChildren()) do
-                if isValidRaidEnemy(mob) then
-                    local root = mob:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local screenPos = camera:WorldToViewportPoint(root.Position)
-                        if screenPos.Z > 0 then
-                            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                            if screenDist < shortestDist then
-                                shortestDist = screenDist
-                                closestTarget = root
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    else
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and plr.Character then
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                local hum = plr.Character:FindFirstChild("Humanoid")
-                if root and hum and hum.Health > 0 then
-                    local screenPos = camera:WorldToViewportPoint(root.Position)
-                    if screenPos.Z > 0 then
+    FOVCircle.Position = screenCenter
+    FOVCircle.Visible = FOVSettings.Enabled and MainFrame.Visible == false
+
+    if not FOVSettings.Enabled then return nil end
+
+    -- Check Raid Enemies / NPCs
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidRaidEnemy(mob) then
+                local root = mob:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
                         local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        if screenDist < shortestDist then
+                        if screenDist <= FOVSettings.Radius and screenDist < shortestDist then
                             shortestDist = screenDist
-                            closestTarget = root
+                            bestTarget = root
                         end
                     end
                 end
             end
         end
     end
-    return closestTarget
+
+    -- Check Players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            if root and hum and hum.Health > 0 then
+                local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                if onScreen then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if screenDist <= FOVSettings.Radius and screenDist < shortestDist then
+                        shortestDist = screenDist
+                        bestTarget = root
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
 end
 
 RunService.RenderStepped:Connect(function()
@@ -609,20 +680,17 @@ RunService.RenderStepped:Connect(function()
             for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
         end
         
-        if CombatStates.PlayerCamActive then
-            if not CombatStates.LockedTarget or not CombatStates.LockedTarget.Parent or not CombatStates.LockedTarget.Parent:FindFirstChild("Humanoid") or CombatStates.LockedTarget.Parent.Humanoid.Health <= 0 then
-                CombatStates.LockedTarget = getClosestTarget(false)
+        -- Rainbow FOV Aimbot Logic
+        if FOVSettings.Enabled then
+            local hue = (tick() * FOVSettings.RainbowSpeed) % 1
+            FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
+
+            local target = getTargetInsideFOV()
+            if target then
+                camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
             end
-            if CombatStates.LockedTarget then
-                camera.CFrame = CFrame.new(camera.CFrame.Position, CombatStates.LockedTarget.Position)
-            end
-        elseif CombatStates.NpcCamActive then
-            if not CombatStates.LockedTarget or not CombatStates.LockedTarget.Parent or not CombatStates.LockedTarget.Parent:FindFirstChild("Humanoid") or CombatStates.LockedTarget.Parent.Humanoid.Health <= 0 then
-                CombatStates.LockedTarget = getClosestTarget(true)
-            end
-            if CombatStates.LockedTarget then
-                camera.CFrame = CFrame.new(camera.CFrame.Position, CombatStates.LockedTarget.Position)
-            end
+        else
+            FOVCircle.Visible = false
         end
     end)
 end)
@@ -674,41 +742,6 @@ task.spawn(function()
     end
 end)
 
--- Fixed Universal Auto Clicker Loop (Optimized to fire weapon Remotes directly)
-task.spawn(function()
-    while true do
-        pcall(function()
-            if AutoClickerSettings.Enabled then
-                local char = localPlayer.Character
-                if char then
-                    local tool = char:FindFirstChildOfClass("Tool")
-                    if tool then
-                        -- Try firing direct tool remote events
-                        local leftClickRemote = tool:FindFirstChild("LeftClickRemote") or tool:FindFirstChild("AttackRemote") or tool:FindFirstChild("ToolAttack")
-                        if leftClickRemote and typeof(leftClickRemote.FireServer) == "function" then
-                            leftClickRemote:FireServer(camera.CFrame.LookVector, 1)
-                        end
-                        
-                        for _, remote in ipairs(tool:GetDescendants()) do
-                            if remote:IsA("RemoteEvent") and (remote.Name:lower():find("attack") or remote.Name:lower():find("click") or remote.Name:lower():find("hit")) then
-                                pcall(function() remote:FireServer(camera.CFrame.LookVector, 1) end)
-                            end
-                        end
-                        
-                        pcall(function() tool:Activate() end)
-                    end
-                    
-                    local regAttack = getRegisterAttack()
-                    if regAttack and typeof(regAttack.FireServer) == "function" then
-                        regAttack:FireServer(0)
-                    end
-                end
-            end
-        end)
-        task.wait(AutoClickerSettings.Delay)
-    end
-end)
-
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     pcall(function()
@@ -719,10 +752,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
             MainFrame.Visible = not MainFrame.Visible
         elseif input.KeyCode == Keybinds.MenuHide then
             ScreenGui.Enabled = not ScreenGui.Enabled
-        elseif input.KeyCode == Keybinds.AutoClickerKey then
-            AutoClickerSettings.Enabled = not AutoClickerSettings.Enabled
-            btnAutoClicker.Text = AutoClickerSettings.Enabled and "ON" or "OFF"
-            btnAutoClicker.TextColor3 = AutoClickerSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+        elseif input.KeyCode == Keybinds.AimbotKey then
+            FOVSettings.Enabled = not FOVSettings.Enabled
+            btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
+            btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
         elseif input.KeyCode == Keybinds.PlayerCam then
             CombatStates.PlayerCamActive = not CombatStates.PlayerCamActive
             if CombatStates.PlayerCamActive then CombatStates.NpcCamActive = false end
