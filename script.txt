@@ -13,34 +13,16 @@ local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
 
-local function nukeEverythingOld()
-    local namesToDestroy = {
-        "KeybindSettingUI", "PvPHUDUI", "PlayerESP", "StandalonePlayerESP", 
-        "AlwaysActivePlayerESP", "BloxFruitHub", "FOVCircleDrawing"
-    }
-    
+-- Safe cleanup to prevent crashing during startup
+pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
-        for _, targetName in ipairs(namesToDestroy) do
-            if obj.Name == targetName or obj.Name:find("BloxFruit") or obj.Name:find("Keybind") then
-                pcall(function() obj:Destroy() end)
-            end
+        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") then
+            obj:Destroy()
         end
     end
-    
-    local playerGui = localPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        for _, obj in ipairs(playerGui:GetChildren()) do
-            for _, targetName in ipairs(namesToDestroy) do
-                if obj.Name == targetName or obj.Name:find("BloxFruit") or obj.Name:find("Keybind") then
-                    pcall(function() obj:Destroy() end)
-                end
-            end
-        end
-    end
-end
+end)
 
-nukeEverythingOld()
-task.wait(0.2)
+task.wait(0.1)
 
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
