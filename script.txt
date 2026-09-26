@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Full Script with Fixed Accessories, PvP Hitbox Expander, & Organized Tabs)
+-- Blox Fruits Hub (Full Script with Fixed Hitboxes - RootPart Only, No Giant Limbs/Accessories)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -944,7 +944,7 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
--- NPC Tab Controls (Full-Body Hitbox Expander & Moved NPC Camlock Keybind)
+-- NPC Tab Controls (RootPart-Only Hitbox Expander & Moved NPC Camlock Keybind)
 local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
 
 btnNpcHitbox.MouseButton1Click:Connect(function()
@@ -1095,29 +1095,28 @@ end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        -- NPC Hitbox Expander (Excludes Accessories so hats/capes don't blow up)
+        -- NPC Hitbox Expander (Only scales HumanoidRootPart so hands/legs/accessories stay normal)
         if NpcHitboxSettings.Enabled then
             local enemiesFolder = Workspace:FindFirstChild("Enemies")
             if enemiesFolder then
                 for _, mob in ipairs(enemiesFolder:GetChildren()) do
                     if isValidRaidEnemy(mob) then
-                        for _, part in ipairs(mob:GetDescendants()) do
-                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
-                                if not originalHitboxSizes[part] then
-                                    originalHitboxSizes[part] = {
-                                        size = part.Size,
-                                        transparency = part.Transparency,
-                                        material = part.Material,
-                                        canCollide = part.CanCollide
-                                    }
-                                end
-                                local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
-                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
-                                part.Transparency = 0.7
-                                part.Material = Enum.Material.Neon
-                                part.Color = Color3.fromRGB(255, 100, 100)
-                                part.CanCollide = false
+                        local rootPart = mob:FindFirstChild("HumanoidRootPart")
+                        if rootPart and rootPart:IsA("BasePart") then
+                            if not originalHitboxSizes[rootPart] then
+                                originalHitboxSizes[rootPart] = {
+                                    size = rootPart.Size,
+                                    transparency = rootPart.Transparency,
+                                    material = rootPart.Material,
+                                    canCollide = rootPart.CanCollide
+                                }
                             end
+                            local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
+                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
+                            rootPart.Transparency = 0.7
+                            rootPart.Material = Enum.Material.Neon
+                            rootPart.Color = Color3.fromRGB(255, 100, 100)
+                            rootPart.CanCollide = false
                         end
                     end
                 end
@@ -1126,29 +1125,28 @@ RunService.RenderStepped:Connect(function()
             restoreHitboxes()
         end
 
-        -- Player Hitbox Expander (PvP Tab - Excludes Accessories)
+        -- Player Hitbox Expander (Only scales HumanoidRootPart so hands/legs/accessories stay normal)
         if PlayerHitboxSettings.Enabled then
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= localPlayer and plr.Character then
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if hum and hum.Health > 0 then
-                        for _, part in ipairs(plr.Character:GetDescendants()) do
-                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
-                                if not originalPlayerHitboxSizes[part] then
-                                    originalPlayerHitboxSizes[part] = {
-                                        size = part.Size,
-                                        transparency = part.Transparency,
-                                        material = part.Material,
-                                        canCollide = part.CanCollide
-                                    }
-                                end
-                                local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
-                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
-                                part.Transparency = 0.7
-                                part.Material = Enum.Material.Neon
-                                part.Color = Color3.fromRGB(100, 150, 255)
-                                part.CanCollide = false
+                        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if rootPart and rootPart:IsA("BasePart") then
+                            if not originalPlayerHitboxSizes[rootPart] then
+                                originalPlayerHitboxSizes[rootPart] = {
+                                    size = rootPart.Size,
+                                    transparency = rootPart.Transparency,
+                                    material = rootPart.Material,
+                                    canCollide = rootPart.CanCollide
+                                }
                             end
+                            local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
+                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
+                            rootPart.Transparency = 0.7
+                            rootPart.Material = Enum.Material.Neon
+                            rootPart.Color = Color3.fromRGB(100, 150, 255)
+                            rootPart.CanCollide = false
                         end
                     end
                 end
