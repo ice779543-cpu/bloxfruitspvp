@@ -48,7 +48,7 @@ local Keybinds = {
     SuperJump = Enum.KeyCode.L,
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
-    MenuToggle = Enum.KeyCode.N, -- Updated default to N
+    MenuToggle = Enum.KeyCode.N, -- Set to N as requested
     MenuHide = Enum.KeyCode.B,
     AimbotKey = Enum.KeyCode.C,
     MacroKey = Enum.KeyCode.V
@@ -219,7 +219,7 @@ local function runMacroSequence()
     end)
 end
 
--- Finds the player closest to the center of your screen/crosshair
+-- AIM-BASED Player Target (Finds player closest to center of screen / crosshair)
 local function findAimedPlayerTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -245,7 +245,7 @@ local function findAimedPlayerTarget()
     return bestTarget
 end
 
--- Finds the NPC closest to the center of your screen/crosshair
+-- AIM-BASED NPC Target (Finds NPC closest to center of screen / crosshair)
 local function findAimedNpcTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -835,7 +835,7 @@ RunService.RenderStepped:Connect(function()
             manageRaidFlight()
         end
 
-        -- Aim-Based Camlock execution loops
+        -- Aim-Based Camlock Execution Loops
         if CamStates.PlayerCamActive then
             local targetRoot = findAimedPlayerTarget()
             if targetRoot then
