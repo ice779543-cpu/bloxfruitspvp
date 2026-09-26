@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Updated: Fast Attack Restored + Rainbow FOV Circle)
+-- Blox Fruits Hub (Updated: Fast Attack on PvP Tab + Rainbow FOV Circle)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -6,7 +6,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
-local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
@@ -55,7 +54,7 @@ local Keybinds = {
 
 local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
-local FastAttackSettings = { Enabled = false }
+local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
 local CombatStates = { LockedTarget = nil }
 
@@ -69,6 +68,56 @@ local function isValidRaidEnemy(mob)
         return true
     end)
     return success and result
+end
+
+local function getRegisterAttack()
+    local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
+    if success and res then return res end
+    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+        if v.Name == "RegisterAttack" or v.Name == "RE/RegisterAttack" then return v end
+    end
+    return nil
+end
+
+local function getRegisterHit()
+    local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterHit"] end)
+    if success and res then return res end
+    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+        if v.Name == "RegisterHit" or v.Name == "RE/RegisterHit" then return v end
+    end
+    return nil
+end
+
+local function executeMultiAttack(targetsList)
+    pcall(function()
+        local char = localPlayer.Character
+        if not char then return end
+        local equippedWeapon = char:FindFirstChildOfClass("Tool")
+        if equippedWeapon then
+            local attackRemote = equippedWeapon:FindFirstChild("LeftClickRemote") or equippedWeapon:FindFirstChild("ToolAttack") or equippedWeapon:FindFirstChild("AttackRemote")
+            if attackRemote and typeof(attackRemote.FireServer) == "function" and #targetsList > 0 then
+                local firstRoot = targetsList[1].Root
+                local direction = (firstRoot.Position - char:GetPivot().Position).Unit
+                attackRemote:FireServer(direction, 1)
+            end
+        end
+        
+        local regAttack = getRegisterAttack()
+        if regAttack and typeof(regAttack.FireServer) == "function" then regAttack:FireServer(0) end
+        
+        local regHit = getRegisterHit()
+        if regHit and typeof(regHit.FireServer) == "function" and #targetsList > 0 then
+            local hitParams = {}
+            for _, data in ipairs(targetsList) do
+                if data.Head and data.Head.Parent then
+                    table.insert(hitParams, {data.Head.Parent, data.Head})
+                end
+            end
+            if #hitParams > 0 then
+                regHit:FireServer(targetsList[1].Head, hitParams)
+            end
+        end
+    end)
 end
 
 local function findCurrentRaidIsland(rootPos)
@@ -456,27 +505,33 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
 end
 
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
-local btnFastAttack = createToggleRow(RaidFrame, "Fast Attack / Auto-Clicker", FastAttackSettings.Enabled, 45)
 
 local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
-local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 45)
+local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
+local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 
-createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 85, function(val)
+createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 125, function(val)
     FOVSettings.Radius = val
     FOVCircle.Radius = val
 end)
 
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 145)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 185)
-createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 225)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 265)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 305)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 345)
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 185)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 225)
+createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 265)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 305)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 345)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 385)
 
 btnFOVCircle.MouseButton1Click:Connect(function()
     FOVSettings.Enabled = not FOVSettings.Enabled
     btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
     btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+btnFastAttack.MouseButton1Click:Connect(function()
+    FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
+    btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
+    btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnAutoRaid.MouseButton1Click:Connect(function()
@@ -496,12 +551,6 @@ btnAutoRaid.MouseButton1Click:Connect(function()
             end
         end
     end
-end)
-
-btnFastAttack.MouseButton1Click:Connect(function()
-    FastAttackSettings.Enabled = not FastAttackSettings.Enabled
-    btnFastAttack.Text = FastAttackSettings.Enabled and "ON" or "OFF"
-    btnFastAttack.TextColor3 = FastAttackSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnESP.MouseButton1Click:Connect(function()
@@ -567,15 +616,57 @@ local function getTargetInsideFOV()
     return bestTarget
 end
 
+-- Fast Attack Loop Task
+task.spawn(function()
+    while true do
+        pcall(function()
+            if FastAttackSettings.AutoClick then
+                local char = localPlayer.Character
+                if char and char:FindFirstChildOfClass("Tool") then
+                    local myRoot = char:FindFirstChild("HumanoidRootPart")
+                    if myRoot then
+                        local targetsList = {}
+                        
+                        local enemiesFolder = Workspace:FindFirstChild("Enemies")
+                        if enemiesFolder then
+                            for _, mob in pairs(enemiesFolder:GetChildren()) do
+                                if isValidRaidEnemy(mob) then
+                                    local head = mob:FindFirstChild("Head")
+                                    local root = mob:FindFirstChild("HumanoidRootPart")
+                                    local hum = mob:FindFirstChild("Humanoid")
+                                    if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                        table.insert(targetsList, {Head = head, Root = root})
+                                    end
+                                end
+                            end
+                        end
+
+                        for _, plr in ipairs(Players:GetPlayers()) do
+                            if plr ~= localPlayer and plr.Character then
+                                local head = plr.Character:FindFirstChild("Head")
+                                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                                local hum = plr.Character:FindFirstChild("Humanoid")
+                                if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                    table.insert(targetsList, {Head = head, Root = root})
+                                end
+                            end
+                        end
+
+                        if #targetsList > 0 then
+                            executeMultiAttack(targetsList)
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(FastAttackSettings.ClickDelay)
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if AutoRaidSettings.Enabled then
             manageRaidFlight()
-        end
-
-        if FastAttackSettings.Enabled then
-            VirtualUser:Button1Down(Vector2.new(0, 0))
-            VirtualUser:Button1Up(Vector2.new(0, 0))
         end
 
         if ESPStates.Enabled then
