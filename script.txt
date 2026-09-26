@@ -1,5 +1,3 @@
--- Blox Fruits Hub (Full Script with Fixed Hitboxes - RootPart Only, No Giant Limbs/Accessories)
-
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -43,7 +41,8 @@ local ESPStates = { Enabled = true }
 local MiscSettings = {
     AutoV3 = false,
     AutoV4 = false,
-    AutoAura = false
+    AutoAura = false,
+    WalkOnWater = false
 }
 
 local FruitNotifierSettings = {
@@ -505,13 +504,48 @@ local function manageRaidFlight()
     end)
 end
 
+-- Water Platform System for Walk on Water
+local waterPlatform = nil
+local function manageWaterPlatform()
+    pcall(function()
+        if MiscSettings.WalkOnWater then
+            local char = localPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                if not waterPlatform or not waterPlatform.Parent then
+                    waterPlatform = Instance.new("Part")
+                    waterPlatform.Name = "WaterSafetyPlatform"
+                    waterPlatform.Size = Vector3.new(45, 1, 45)
+                    waterPlatform.Anchored = true
+                    waterPlatform.CanCollide = true
+                    waterPlatform.Transparency = 1 -- Completely invisible
+                    waterPlatform.Parent = Workspace
+                end
+                
+                -- Check if player is near or below sea level (Blox Fruits water surface is usually around Y = 0 or Y = 3)
+                if root.Position.Y <= 15 then
+                    waterPlatform.Position = Vector3.new(root.Position.X, 3, root.Position.Z)
+                else
+                    waterPlatform.Position = Vector3.new(root.Position.X, -30, root.Position.Z)
+                end
+            end
+        else
+            if waterPlatform then
+                waterPlatform:Destroy()
+                waterPlatform = nil
+            end
+        end
+    end)
+end
+
 local function saveSettings()
     pcall(function()
         if writefile and HttpService then
             local encodedTable = {
                 Keybinds = {},
                 MacroSelections = MacroSelections,
-                MacroDelays = MacroDelays
+                MacroDelays = MacroDelays,
+                MiscSettings = MiscSettings
             }
             for keyName, keyCode in pairs(Keybinds) do 
                 encodedTable.Keybinds[keyName] = keyCode.Name 
@@ -541,6 +575,11 @@ local function loadSettings()
                 if decoded.MacroDelays and type(decoded.MacroDelays) == "table" then
                     for i = 1, #MacroDelays do
                         if decoded.MacroDelays[i] then MacroDelays[i] = decoded.MacroDelays[i] end
+                    end
+                end
+                if decoded.MiscSettings and type(decoded.MiscSettings) == "table" then
+                    for k, v in pairs(decoded.MiscSettings) do
+                        if MiscSettings[k] ~= nil then MiscSettings[k] = v end
                     end
                 end
             end
@@ -869,7 +908,6 @@ local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 
--- PvP Tab Hitbox Expander Controls
 local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 125)
 
 btnPlayerHitbox.MouseButton1Click:Connect(function()
@@ -902,30 +940,43 @@ for i = 1, 8 do
     createMacroBlockWithDelay(MacroFrame, i, 45 + ((i - 1) * 40))
 end
 
--- Misc Tab Controls
 local btnAutoV3 = createToggleRow(MiscFrame, "Auto V3 Ability", MiscSettings.AutoV3, 5)
 local btnAutoV4 = createToggleRow(MiscFrame, "Auto V4 Transformation", MiscSettings.AutoV4, 45)
 local btnAutoAura = createToggleRow(MiscFrame, "Auto Aura (Buso Haki)", MiscSettings.AutoAura, 85)
+local btnWalkOnWater = createToggleRow(MiscFrame, "Walk on Water", MiscSettings.WalkOnWater, 125)
 
 btnAutoV3.MouseButton1Click:Connect(function()
     MiscSettings.AutoV3 = not MiscSettings.AutoV3
     btnAutoV3.Text = MiscSettings.AutoV3 and "ON" or "OFF"
     btnAutoV3.TextColor3 = MiscSettings.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    saveSettings()
 end)
 
 btnAutoV4.MouseButton1Click:Connect(function()
     MiscSettings.AutoV4 = not MiscSettings.AutoV4
     btnAutoV4.Text = MiscSettings.AutoV4 and "ON" or "OFF"
     btnAutoV4.TextColor3 = MiscSettings.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    saveSettings()
 end)
 
 btnAutoAura.MouseButton1Click:Connect(function()
     MiscSettings.AutoAura = not MiscSettings.AutoAura
     btnAutoAura.Text = MiscSettings.AutoAura and "ON" or "OFF"
     btnAutoAura.TextColor3 = MiscSettings.AutoAura and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    saveSettings()
 end)
 
--- Fruit Notifier Tab Controls
+btnWalkOnWater.MouseButton1Click:Connect(function()
+    MiscSettings.WalkOnWater = not MiscSettings.WalkOnWater
+    btnWalkOnWater.Text = MiscSettings.WalkOnWater and "ON" or "OFF"
+    btnWalkOnWater.TextColor3 = MiscSettings.WalkOnWater and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not MiscSettings.WalkOnWater and waterPlatform then
+        waterPlatform:Destroy()
+        waterPlatform = nil
+    end
+    saveSettings()
+end)
+
 local btnFruitNotifier = createToggleRow(FruitFrame, "Fruit Notifier ESP", FruitNotifierSettings.Enabled, 5)
 
 btnFruitNotifier.MouseButton1Click:Connect(function()
@@ -944,7 +995,6 @@ btnFruitNotifier.MouseButton1Click:Connect(function()
     end
 end)
 
--- NPC Tab Controls (RootPart-Only Hitbox Expander & Moved NPC Camlock Keybind)
 local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxSettings.Enabled, 5)
 
 btnNpcHitbox.MouseButton1Click:Connect(function()
@@ -962,7 +1012,6 @@ end)
 
 createKeybindRow(NpcFrame, "NPC Camlock Key", "NpcCam", 105)
 
--- Real-time fruit watcher connection
 Workspace.DescendantAdded:Connect(function(obj)
     if FruitNotifierSettings.Enabled then
         task.wait(0.5)
@@ -1095,28 +1144,30 @@ end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        -- NPC Hitbox Expander (Only scales HumanoidRootPart so hands/legs/accessories stay normal)
+        manageWaterPlatform()
+
         if NpcHitboxSettings.Enabled then
             local enemiesFolder = Workspace:FindFirstChild("Enemies")
             if enemiesFolder then
                 for _, mob in ipairs(enemiesFolder:GetChildren()) do
                     if isValidRaidEnemy(mob) then
-                        local rootPart = mob:FindFirstChild("HumanoidRootPart")
-                        if rootPart and rootPart:IsA("BasePart") then
-                            if not originalHitboxSizes[rootPart] then
-                                originalHitboxSizes[rootPart] = {
-                                    size = rootPart.Size,
-                                    transparency = rootPart.Transparency,
-                                    material = rootPart.Material,
-                                    canCollide = rootPart.CanCollide
-                                }
+                        for _, part in ipairs(mob:GetDescendants()) do
+                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
+                                if not originalHitboxSizes[part] then
+                                    originalHitboxSizes[part] = {
+                                        size = part.Size,
+                                        transparency = part.Transparency,
+                                        material = part.Material,
+                                        canCollide = part.CanCollide
+                                    }
+                                end
+                                local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
+                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
+                                part.Transparency = 0.7
+                                part.Material = Enum.Material.Neon
+                                part.Color = Color3.fromRGB(255, 100, 100)
+                                part.CanCollide = false
                             end
-                            local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
-                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
-                            rootPart.Transparency = 0.7
-                            rootPart.Material = Enum.Material.Neon
-                            rootPart.Color = Color3.fromRGB(255, 100, 100)
-                            rootPart.CanCollide = false
                         end
                     end
                 end
@@ -1125,28 +1176,28 @@ RunService.RenderStepped:Connect(function()
             restoreHitboxes()
         end
 
-        -- Player Hitbox Expander (Only scales HumanoidRootPart so hands/legs/accessories stay normal)
         if PlayerHitboxSettings.Enabled then
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= localPlayer and plr.Character then
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if hum and hum.Health > 0 then
-                        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
-                        if rootPart and rootPart:IsA("BasePart") then
-                            if not originalPlayerHitboxSizes[rootPart] then
-                                originalPlayerHitboxSizes[rootPart] = {
-                                    size = rootPart.Size,
-                                    transparency = rootPart.Transparency,
-                                    material = rootPart.Material,
-                                    canCollide = rootPart.CanCollide
-                                }
+                        for _, part in ipairs(plr.Character:GetDescendants()) do
+                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
+                                if not originalPlayerHitboxSizes[part] then
+                                    originalPlayerHitboxSizes[part] = {
+                                        size = part.Size,
+                                        transparency = part.Transparency,
+                                        material = part.Material,
+                                        canCollide = part.CanCollide
+                                    }
+                                end
+                                local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
+                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
+                                part.Transparency = 0.7
+                                part.Material = Enum.Material.Neon
+                                part.Color = Color3.fromRGB(100, 150, 255)
+                                part.CanCollide = false
                             end
-                            local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
-                            rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
-                            rootPart.Transparency = 0.7
-                            rootPart.Material = Enum.Material.Neon
-                            rootPart.Color = Color3.fromRGB(100, 150, 255)
-                            rootPart.CanCollide = false
                         end
                     end
                 end
@@ -1315,7 +1366,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.NpcCamActive = false
                 CamStates.LockedNpcTarget = nil
             else
-                local target = findAimedNpcTarget()
+                let target = findAimedNpcTarget()
                 if target then
                     CamStates.NpcCamActive = true
                     CamStates.LockedNpcTarget = target
