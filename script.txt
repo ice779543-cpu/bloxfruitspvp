@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros & Keybinds)
+-- Blox Fruits Hub (Sticky Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros with Custom Delays)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -48,7 +48,7 @@ local Keybinds = {
     SuperJump = Enum.KeyCode.L,
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
-    MenuToggle = Enum.KeyCode.N, -- Default set to N, now fully customizable via UI
+    MenuToggle = Enum.KeyCode.N,
     MenuHide = Enum.KeyCode.B,
     AimbotKey = Enum.KeyCode.C,
     MacroKey = Enum.KeyCode.V
@@ -61,7 +61,9 @@ local ESPStates = { Enabled = true }
 
 local CamStates = {
     PlayerCamActive = false,
-    NpcCamActive = false
+    NpcCamActive = false,
+    LockedPlayerTarget = nil,
+    LockedNpcTarget = nil
 }
 
 local MacroActions = {
@@ -71,7 +73,9 @@ local MacroActions = {
     "Gun Z", "Gun X", 
     "Melee Z", "Melee X", "Melee C"
 }
+
 local MacroSelections = { "None", "None", "None", "None", "None", "None", "None", "None" }
+local MacroDelays = { 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4 }
 
 local function isValidRaidEnemy(mob)
     local success, result = pcall(function()
@@ -186,15 +190,16 @@ local function equipToolType(toolType)
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 humanoid:EquipTool(foundTool)
-                task.wait(0.25)
+                task.wait(0.2)
             end
         end
     end
 end
 
+-- Fixed macro sequence function with proper yielding to fire all blocks sequentially
 local function runMacroSequence()
     task.spawn(function()
-        for _, actionStr in ipairs(MacroSelections) do
+        for i, actionStr in ipairs(MacroSelections) do
             if actionStr and actionStr ~= "None" then
                 local spacePos = actionStr:find(" ")
                 if spacePos then
@@ -202,7 +207,7 @@ local function runMacroSequence()
                     local moveKey = actionStr:sub(spacePos + 1):upper()
 
                     equipToolType(category)
-                    task.wait(0.1)
+                    task.wait(0.15)
 
                     local keyCode = Enum.KeyCode[moveKey]
                     if keyCode then
@@ -211,7 +216,7 @@ local function runMacroSequence()
                             task.wait(0.05)
                             VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
                         end)
-                        task.wait(0.35)
+                        task.wait(MacroDelays[i] or 0.4)
                     end
                 end
             end
@@ -219,7 +224,6 @@ local function runMacroSequence()
     end)
 end
 
--- Aim-Based Player Target
 local function findAimedPlayerTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -245,7 +249,6 @@ local function findAimedPlayerTarget()
     return bestTarget
 end
 
--- Aim-Based NPC Target
 local function findAimedNpcTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -372,7 +375,8 @@ local function saveSettings()
         if writefile and HttpService then
             local encodedTable = {
                 Keybinds = {},
-                MacroSelections = MacroSelections
+                MacroSelections = MacroSelections,
+                MacroDelays = MacroDelays
             }
             for keyName, keyCode in pairs(Keybinds) do 
                 encodedTable.Keybinds[keyName] = keyCode.Name 
@@ -396,9 +400,12 @@ local function loadSettings()
                 end
                 if decoded.MacroSelections and type(decoded.MacroSelections) == "table" then
                     for i = 1, #MacroSelections do
-                        if decoded.MacroSelections[i] then
-                            MacroSelections[i] = decoded.MacroSelections[i]
-                        end
+                        if decoded.MacroSelections[i] then MacroSelections[i] = decoded.MacroSelections[i] end
+                    end
+                end
+                if decoded.MacroDelays and type(decoded.MacroDelays) == "table" then
+                    for i = 1, #MacroDelays do
+                        if decoded.MacroDelays[i] then MacroDelays[i] = decoded.MacroDelays[i] end
                     end
                 end
             end
@@ -463,20 +470,20 @@ ContentPanel.Position = UDim2.new(0, 135, 0, 50)
 ContentPanel.BackgroundTransparency = 1
 ContentPanel.Parent = MainFrame
 
-local function createContentScrollingFrame()
+local function createContentScrollingFrame(canvasHeight)
     local sf = Instance.new("ScrollingFrame")
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
-    sf.CanvasSize = UDim2.new(0, 0, 0, 550)
+    sf.CanvasSize = UDim2.new(0, 0, 0, canvasHeight or 550)
     sf.ScrollBarThickness = 4
     sf.Visible = false
     sf.Parent = ContentPanel
     return sf
 end
 
-local RaidFrame = createContentScrollingFrame()
-local PvPFrame = createContentScrollingFrame()
-local MacroFrame = createContentScrollingFrame()
+local RaidFrame = createContentScrollingFrame(400)
+local PvPFrame = createContentScrollingFrame(500)
+local MacroFrame = createContentScrollingFrame(420)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -642,7 +649,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     end)
 end
 
-local function createMacroBlock(parentFrame, index, yPos)
+local function createMacroBlockWithDelay(parentFrame, index, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
     Row.Position = UDim2.new(0, 5, 0, yPos)
@@ -651,22 +658,22 @@ local function createMacroBlock(parentFrame, index, yPos)
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.4, 0, 1, 0)
+    Label.Size = UDim2.new(0.35, 0, 1, 0)
     Label.Position = UDim2.new(0, 10, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 12
     Label.TextColor3 = Color3.fromRGB(220, 220, 220)
     Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Text = "Action Block " .. index
+    Label.Text = "Action " .. index
     Label.Parent = Row
 
     local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0, 130, 0, 26)
-    SelectButton.Position = UDim2.new(1, -135, 0.5, -13)
+    SelectButton.Size = UDim2.new(0, 110, 0, 26)
+    SelectButton.Position = UDim2.new(1, -225, 0.5, -13)
     SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
     SelectButton.Font = Enum.Font.SourceSansBold
-    SelectButton.TextSize = 12
+    SelectButton.TextSize = 11
     SelectButton.Text = MacroSelections[index]
     SelectButton.TextColor3 = Color3.fromRGB(0, 255, 128)
     SelectButton.Parent = Row
@@ -683,6 +690,33 @@ local function createMacroBlock(parentFrame, index, yPos)
         SelectButton.Text = MacroSelections[index]
         saveSettings()
     end)
+
+    local DelayButton = Instance.new("TextButton")
+    DelayButton.Size = UDim2.new(0, 95, 0, 26)
+    DelayButton.Position = UDim2.new(1, -100, 0.5, -13)
+    DelayButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    DelayButton.Font = Enum.Font.SourceSansBold
+    DelayButton.TextSize = 11
+    DelayButton.Text = "Delay: " .. string.format("%.1fs", MacroDelays[index])
+    DelayButton.TextColor3 = Color3.fromRGB(255, 200, 0)
+    DelayButton.Parent = Row
+    Instance.new("UICorner", DelayButton).CornerRadius = UDim.new(0, 4)
+
+    local delaySteps = {0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5}
+    DelayButton.MouseButton1Click:Connect(function()
+        local currentIdx = 3 
+        for idx, val in ipairs(delaySteps) do
+            if math.abs(val - MacroDelays[index]) < 0.05 then
+                currentIdx = idx
+                break
+            end
+        end
+        currentIdx = currentIdx + 1
+        if currentIdx > #delaySteps then currentIdx = 1 end
+        MacroDelays[index] = delaySteps[currentIdx]
+        DelayButton.Text = "Delay: " .. string.format("%.1fs", MacroDelays[index])
+        saveSettings()
+    end)
 end
 
 local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
@@ -696,7 +730,6 @@ createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 125, f
     FOVCircle.Radius = val
 end)
 
--- Added custom Open Menu Toggle Keybind here
 createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 185)
 createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 225)
 createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 265)
@@ -707,7 +740,7 @@ createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 425)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
-    createMacroBlock(MacroFrame, i, 45 + ((i - 1) * 40))
+    createMacroBlockWithDelay(MacroFrame, i, 45 + ((i - 1) * 40))
 end
 
 btnFOVCircle.MouseButton1Click:Connect(function()
@@ -752,37 +785,6 @@ if not espFolder then
     espFolder = Instance.new("Folder")
     espFolder.Name = "AlwaysActivePlayerESP"
     espFolder.Parent = CoreGui
-end
-
-local function getTargetInsideFOV()
-    local bestTarget = nil
-    local shortestDist = math.huge
-    local screenSize = camera.ViewportSize
-    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-
-    FOVCircle.Position = screenCenter
-    FOVCircle.Visible = FOVSettings.Enabled and MainFrame.Visible == false
-
-    if not FOVSettings.Enabled then return nil end
-
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= localPlayer and plr.Character then
-            local root = plr.Character:FindFirstChild("HumanoidRootPart")
-            local hum = plr.Character:FindFirstChild("Humanoid")
-            if root and hum and hum.Health > 0 then
-                local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                if onScreen then
-                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if screenDist <= FOVSettings.Radius and screenDist < shortestDist then
-                        shortestDist = screenDist
-                        bestTarget = root
-                    end
-                end
-            end
-        end
-    end
-
-    return bestTarget
 end
 
 task.spawn(function()
@@ -837,15 +839,35 @@ RunService.RenderStepped:Connect(function()
             manageRaidFlight()
         end
 
+        -- Sticky Player Camlock Logic
         if CamStates.PlayerCamActive then
-            local targetRoot = findAimedPlayerTarget()
-            if targetRoot then
-                camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+            if CamStates.LockedPlayerTarget and CamStates.LockedPlayerTarget.Parent then
+                local hum = CamStates.LockedPlayerTarget.Parent:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, CamStates.LockedPlayerTarget.Position)
+                else
+                    CamStates.PlayerCamActive = false
+                    CamStates.LockedPlayerTarget = nil
+                end
+            else
+                CamStates.PlayerCamActive = false
+                CamStates.LockedPlayerTarget = nil
             end
-        elseif CamStates.NpcCamActive then
-            local targetRoot = findAimedNpcTarget()
-            if targetRoot then
-                camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+        end
+
+        -- Sticky NPC Camlock Logic
+        if CamStates.NpcCamActive then
+            if CamStates.LockedNpcTarget and CamStates.LockedNpcTarget.Parent then
+                local hum = CamStates.LockedNpcTarget.Parent:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, CamStates.LockedNpcTarget.Position)
+                else
+                    CamStates.NpcCamActive = false
+                    CamStates.LockedNpcTarget = nil
+                end
+            else
+                CamStates.NpcCamActive = false
+                CamStates.LockedNpcTarget = nil
             end
         end
 
@@ -908,7 +930,30 @@ RunService.RenderStepped:Connect(function()
             local hue = (tick() * FOVSettings.RainbowSpeed) % 1
             FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
 
-            local target = getTargetInsideFOV()
+            local screenSize = camera.ViewportSize
+            local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+            FOVCircle.Position = screenCenter
+            FOVCircle.Visible = MainFrame.Visible == false
+
+            local target = nil
+            local shortestDist = math.huge
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= localPlayer and plr.Character then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = plr.Character:FindFirstChild("Humanoid")
+                    if root and hum and hum.Health > 0 then
+                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                        if onScreen then
+                            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if screenDist <= FOVSettings.Radius and screenDist < shortestDist then
+                                shortestDist = screenDist
+                                target = root
+                            end
+                        end
+                    end
+                end
+            end
+
             if target then
                 camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
             end
@@ -935,11 +980,31 @@ UserInputService.InputBegan:Connect(function(input, gp)
             btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
             btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
         elseif input.KeyCode == Keybinds.PlayerCam then
-            CamStates.PlayerCamActive = not CamStates.PlayerCamActive
-            if CamStates.PlayerCamActive then CamStates.NpcCamActive = false end
+            if CamStates.PlayerCamActive then
+                CamStates.PlayerCamActive = false
+                CamStates.LockedPlayerTarget = nil
+            else
+                local target = findAimedPlayerTarget()
+                if target then
+                    CamStates.PlayerCamActive = true
+                    CamStates.LockedPlayerTarget = target
+                    CamStates.NpcCamActive = false
+                    CamStates.LockedNpcTarget = nil
+                end
+            end
         elseif input.KeyCode == Keybinds.NpcCam then
-            CamStates.NpcCamActive = not CamStates.NpcCamActive
-            if CamStates.NpcCamActive then CamStates.PlayerCamActive = false end
+            if CamStates.NpcCamActive then
+                CamStates.NpcCamActive = false
+                CamStates.LockedNpcTarget = nil
+            else
+                local target = findAimedNpcTarget()
+                if target then
+                    CamStates.NpcCamActive = true
+                    CamStates.LockedNpcTarget = target
+                    CamStates.PlayerCamActive = false
+                    CamStates.LockedPlayerTarget = nil
+                end
+            end
         elseif input.KeyCode == Keybinds.TpEnemy then
             local closestRoot = nil
             local shortestDist = math.huge
