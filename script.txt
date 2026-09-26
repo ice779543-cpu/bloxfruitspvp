@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Fixed Auto Clicker & No Player Tabs)
+-- Blox Fruits Hub (Fully Fixed Auto Clicker for Swords & Melee)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -657,6 +658,7 @@ task.spawn(function()
                                 local root = plr.Character:FindFirstChild("HumanoidRootPart")
                                 local hum = plr.Character:FindFirstChild("Humanoid")
                                 if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                    table.init(targetsList, {Head = head, Root = root}) -- Fixed table insert fallback
                                     table.insert(targetsList, {Head = head, Root = root})
                                 end
                             end
@@ -673,26 +675,36 @@ task.spawn(function()
     end
 end)
 
--- Fixed Auto Clicker Loop (Fires Tool functions/Remotes directly)
+-- Fully Fixed Universal Auto Clicker Loop (Supports Swords, Fighting Styles, and Fruits)
 task.spawn(function()
     while true do
         pcall(function()
             if AutoClickerSettings.Enabled then
                 local char = localPlayer.Character
                 if char then
-                    local weapon = char:FindFirstChildOfClass("Tool")
-                    if weapon then
-                        -- Method 1: Fire internal attack remotes if they exist
-                        local attackRemote = weapon:FindFirstChild("LeftClickRemote") or weapon:FindFirstChild("ToolAttack") or weapon:FindFirstChild("AttackRemote")
-                        if attackRemote and typeof(attackRemote.FireServer) == "function" then
-                            attackRemote:FireServer(camera.CFrame.LookVector, 1)
-                        end
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool then
+                        -- 1. Try standard tool activation method
+                        pcall(function() tool:Activate() end)
                         
-                        -- Method 2: Invoke tool's activation function if available
-                        if typeof(weapon.Activate) == "function" then
-                            pcall(function() weapon:Activate() end)
+                        -- 2. Check and fire any sub-remotes embedded inside the sword/fighting style
+                        for _, remote in ipairs(tool:GetDescendants()) do
+                            if remote:IsA("RemoteEvent") and (remote.Name:lower():find("attack") or remote.Name:lower():find("click") or remote.Name:lower():find("hit")) then
+                                pcall(function() remote:FireServer(camera.CFrame.LookVector, 1) end)
+                            end
                         end
                     end
+                    
+                    -- 3. Force Global Game Attack Remote
+                    local regAttack = getRegisterAttack()
+                    if regAttack and typeof(regAttack.FireServer) == "function" then
+                        regAttack:FireServer(0)
+                    end
+                    
+                    -- 4. Simulate Virtual User Mouse Click down/up
+                    VirtualUser:Button1Down(Vector2.new(0, 0), camera.CFrame)
+                    task.wait(0.01)
+                    VirtualUser:Button1Up(Vector2.new(0, 0), camera.CFrame)
                 end
             end
         end)
