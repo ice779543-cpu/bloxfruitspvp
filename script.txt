@@ -38,6 +38,12 @@ local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
 
+local AutoFarmMasterySettings = {
+    Enabled = false,
+    FlySpeed = 220,
+    TargetNames = {"candy warrior", "sweet thief", "candy rebel", "chocolate bar battler"}
+}
+
 local MiscSettings = {
     AutoV3 = false,
     AutoV4 = false,
@@ -179,14 +185,21 @@ local function restorePlayerHitboxes()
     originalPlayerHitboxSizes = {}
 end
 
-local function isValidRaidEnemy(mob)
+local function isValidMob(mob)
     local success, result = pcall(function()
         if not mob or not mob.Parent then return false end
         local hum = mob:FindFirstChild("Humanoid")
         local root = mob:FindFirstChild("HumanoidRootPart")
         if not hum or not root then return false end
         if hum.Health <= 0 then return false end
-        return true
+        
+        local mobNameLower = mob.Name:lower()
+        for _, targetName in ipairs(AutoFarmMasterySettings.TargetNames) do
+            if mobNameLower:find(targetName) then
+                return true
+            end
+        end
+        return false
     end)
     return success and result
 end
@@ -264,27 +277,16 @@ local function equipToolType(toolType)
                 
                 if toolType == "Sword" and (tip == "sword" or name:find("sword")) then
                     foundTool = t; break
-                elseif toolType == "Fruit" and (tip:find("blox fruit") or tip == "fruit" or name:find("fruit") or name:find("portal") or name:find("dough") or name:find("kitsune") or name:find("leopard") or name:find("trex")) then
+                elseif toolType == "Fruit" and (tip:find("blox fruit") or tip == "fruit" or name:find("fruit")) then
                     foundTool = t; break
-                elseif toolType == "Gun" and (tip == "gun" or name:find("gun") or name:find("rifle") or name:find("musket") or name:find("bazooka")) then
+                elseif toolType == "Gun" and (tip == "gun" or name:find("gun") or name:find("rifle")) then
                     foundTool = t; break
-                elseif toolType == "Melee" and (tip == "blox fighting style" or tip == "melee" or name:find("fighting") or name:find("step") or name:find("claw")) then
+                elseif toolType == "Melee" and (tip == "blox fighting style" or tip == "melee" or name:find("fighting") or name:find("step")) then
                     foundTool = t; break
                 end
             end
         end
         if foundTool then break end
-    end
-
-    if not foundTool and toolType == "Melee" then
-        for _, container in ipairs(containerList) do
-            for _, t in ipairs(container:GetChildren()) do
-                if t:IsA("Tool") and (t.ToolTip == "" or t.ToolTip:lower() == "melee") then
-                    foundTool = t; break
-                end
-            end
-            if foundTool then break end
-        end
     end
 
     if foundTool then
@@ -343,23 +345,23 @@ local function runMacroSequence()
     end)
 end
 
-local function findAimedPlayerTarget()
+local function findClosestTargetMob()
     local bestTarget = nil
-    local shortestScreenDist = math.huge
-    local screenSize = camera.ViewportSize
-    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+    local shortestDist = math.huge
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= localPlayer and plr.Character then
-            local root = plr.Character:FindFirstChild("HumanoidRootPart")
-            local hum = plr.Character:FindFirstChild("Humanoid")
-            if root and hum and hum.Health > 0 then
-                local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                if onScreen then
-                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if screenDist < shortestScreenDist then
-                        shortestScreenDist = screenDist
-                        bestTarget = root
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidMob(mob) then
+                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                if mobRoot then
+                    local dist = (mobRoot.Position - root.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        bestTarget = mobRoot
                     end
                 end
             end
@@ -368,31 +370,58 @@ local function findAimedPlayerTarget()
     return bestTarget
 end
 
-local function findAimedNpcTarget()
-    local bestTarget = nil
-    local shortestScreenDist = math.huge
-    local screenSize = camera.ViewportSize
-    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+local function manageAutoFarmFlight()
+    pcall(function()
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not root or not hum or hum.Health <= 0 then return end
 
-    local enemiesFolder = Workspace:FindFirstChild("Enemies")
-    if enemiesFolder then
-        for _, mob in ipairs(enemiesFolder:GetChildren()) do
-            if isValidRaidEnemy(mob) then
-                local root = mob:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                    if onScreen then
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        if screenDist < shortestScreenDist then
-                            shortestScreenDist = screenDist
-                            bestTarget = root
-                        end
-                    end
+        local bv = root:FindFirstChild("AutoFarmFlyBV")
+        local bg = root:FindFirstChild("AutoFarmFlyBG")
+
+        if AutoFarmMasterySettings.Enabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "AutoFarmFlyBV"
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Velocity = Vector3.new(0, 0, 0)
+                bv.Parent = root
+            end
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "AutoFarmFlyBG"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.CFrame = root.CFrame
+                bg.Parent = root
+            end
+
+            local targetRoot = findClosestTargetMob()
+            if targetRoot and targetRoot.Parent then
+                local hoverPos = targetRoot.Position + Vector3.new(0, 12, 0)
+                local direction = (hoverPos - root.Position)
+                if direction.Magnitude > 6 then
+                    bv.Velocity = direction.Unit * AutoFarmMasterySettings.FlySpeed
+                    bg.CFrame = CFrame.new(root.Position, targetRoot.Position)
+                else
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                    bg.CFrame = CFrame.new(root.Position, targetRoot.Position)
                 end
+            else
+                bv.Velocity = Vector3.new(0, 0, 0)
+            end
+        else
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
-    end
-    return bestTarget
+    end)
 end
 
 local function findCurrentRaidIsland(rootPos)
@@ -402,38 +431,20 @@ local function findCurrentRaidIsland(rootPos)
     local enemiesFolder = Workspace:FindFirstChild("Enemies")
     if enemiesFolder then
         for _, mob in ipairs(enemiesFolder:GetChildren()) do
-            if isValidRaidEnemy(mob) then
-                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                if mobRoot then
-                    local dist = (mobRoot.Position - rootPos).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        bestTarget = mobRoot.Position + Vector3.new(0, 20, 0)
-                    end
+            local hum = mob:FindFirstChild("Humanoid")
+            local root = mob:FindFirstChild("HumanoidRootPart")
+            if hum and root and hum.Health > 0 then
+                local dist = (root.Position - rootPos).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    bestTarget = root.Position + Vector3.new(0, 20, 0)
                 end
             end
         end
     end
 
     if bestTarget then return bestTarget end
-
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        local name = obj.Name:lower()
-        if name:find("island") or name:find("raid") or name:find("map") then
-            if obj:IsA("Model") then
-                local success, pivot = pcall(function() return obj:GetPivot().Position end)
-                if success and pivot then
-                    local dist = (pivot - rootPos).Magnitude
-                    if dist < shortestDist and pivot.Y > -50 and pivot.Y < 3000 then
-                        shortestDist = dist
-                        bestTarget = pivot + Vector3.new(0, 40, 0)
-                    end
-                end
-            end
-        end
-    end
-
-    return bestTarget
+    return nil
 end
 
 local function manageRaidFlight()
@@ -467,7 +478,6 @@ local function manageRaidFlight()
             end
 
             local targetPos = findCurrentRaidIsland(root.Position)
-
             if targetPos then
                 local direction = (targetPos - root.Position)
                 if direction.Magnitude > 10 then
@@ -644,7 +654,7 @@ local function createContentScrollingFrame(canvasHeight)
     return sf
 end
 
-local RaidFrame = createContentScrollingFrame(400)
+local FarmRaidFrame = createContentScrollingFrame(400)
 local PvPFrame = createContentScrollingFrame(580)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(300)
@@ -653,18 +663,18 @@ local NpcFrame = createContentScrollingFrame(350)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 40)
+    btn.Size = UDim2.new(1, -10, 0, 36)
     btn.Position = UDim2.new(0, 5, 0, yPos)
     btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
+    btn.TextSize = 13
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Text = name
     btn.Parent = TabContainer
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     
     btn.MouseButton1Click:Connect(function()
-        RaidFrame.Visible = false
+        FarmRaidFrame.Visible = false
         PvPFrame.Visible = false
         MacroFrame.Visible = false
         MiscFrame.Visible = false
@@ -675,14 +685,14 @@ local function createTabButton(name, yPos, targetFrame)
     return btn
 end
 
-createTabButton("Raid", 10, RaidFrame)
-createTabButton("PvP", 60, PvPFrame)
-createTabButton("Macro", 110, MacroFrame)
-createTabButton("Misc", 160, MiscFrame)
-createTabButton("Fruit Notifier", 210, FruitFrame)
-createTabButton("NPC", 260, NpcFrame)
+createTabButton("Farm/Raid", 8, FarmRaidFrame)
+createTabButton("PvP", 48, PvPFrame)
+createTabButton("Macro", 88, MacroFrame)
+createTabButton("Misc", 128, MiscFrame)
+createTabButton("Fruit Notifier", 168, FruitFrame)
+createTabButton("NPC", 208, NpcFrame)
 
-RaidFrame.Visible = true
+FarmRaidFrame.Visible = true
 
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
@@ -891,7 +901,47 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     end)
 end
 
-local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
+-- Farm/Raid Tab Controls
+local btnAutoFarmMastery = createToggleRow(FarmRaidFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
+local btnAutoRaid = createToggleRow(FarmRaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 45)
+
+btnAutoFarmMastery.MouseButton1Click:Connect(function()
+    AutoFarmMasterySettings.Enabled = not AutoFarmMasterySettings.Enabled
+    btnAutoFarmMastery.Text = AutoFarmMasterySettings.Enabled and "ON" or "OFF"
+    btnAutoFarmMastery.TextColor3 = AutoFarmMasterySettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not AutoFarmMasterySettings.Enabled then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if root:FindFirstChild("AutoFarmFlyBV") then root.AutoFarmFlyBV:Destroy() end
+            if root:FindFirstChild("AutoFarmFlyBG") then root.AutoFarmFlyBG:Destroy() end
+        end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end
+end)
+
+btnAutoRaid.MouseButton1Click:Connect(function()
+    AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
+    btnAutoRaid.Text = AutoRaidSettings.Enabled and "ON" or "OFF"
+    btnAutoRaid.TextColor3 = AutoRaidSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not AutoRaidSettings.Enabled then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if root:FindFirstChild("RaidFlyBV") then root.RaidFlyBV:Destroy() end
+            if root:FindFirstChild("RaidFlyBG") then root.RaidFlyBG:Destroy() end
+        end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end
+end)
 
 local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
@@ -1022,25 +1072,6 @@ btnFastAttack.MouseButton1Click:Connect(function()
     btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
 end)
 
-btnAutoRaid.MouseButton1Click:Connect(function()
-    AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
-    btnAutoRaid.Text = AutoRaidSettings.Enabled and "ON" or "OFF"
-    btnAutoRaid.TextColor3 = AutoRaidSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-    if not AutoRaidSettings.Enabled then
-        local char = localPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            if root:FindFirstChild("RaidFlyBV") then root.RaidFlyBV:Destroy() end
-            if root:FindFirstChild("RaidFlyBG") then root.RaidFlyBG:Destroy() end
-        end
-        if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = true end
-            end
-        end
-    end
-end)
-
 btnESP.MouseButton1Click:Connect(function()
     ESPStates.Enabled = not ESPStates.Enabled
     btnESP.Text = ESPStates.Enabled and "ON" or "OFF"
@@ -1058,7 +1089,7 @@ end
 task.spawn(function()
     while true do
         pcall(function()
-            if FastAttackSettings.AutoClick then
+            if FastAttackSettings.AutoClick or AutoFarmMasterySettings.Enabled then
                 local char = localPlayer.Character
                 if char and char:FindFirstChildOfClass("Tool") then
                     local myRoot = char:FindFirstChild("HumanoidRootPart")
@@ -1068,24 +1099,26 @@ task.spawn(function()
                         local enemiesFolder = Workspace:FindFirstChild("Enemies")
                         if enemiesFolder then
                             for _, mob in pairs(enemiesFolder:GetChildren()) do
-                                if isValidRaidEnemy(mob) then
+                                if isValidMob(mob) or (FastAttackSettings.AutoClick and isValidMob(mob)) then
                                     local head = mob:FindFirstChild("Head")
                                     local root = mob:FindFirstChild("HumanoidRootPart")
                                     local hum = mob:FindFirstChild("Humanoid")
-                                    if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                    if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= 120 then
                                         table.insert(targetsList, {Head = head, Root = root})
                                     end
                                 end
                             end
                         end
 
-                        for _, plr in ipairs(Players:GetPlayers()) do
-                            if plr ~= localPlayer and plr.Character then
-                                local head = plr.Character:FindFirstChild("Head")
-                                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                                local hum = plr.Character:FindFirstChild("Humanoid")
-                                if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
-                                    table.insert(targetsList, {Head = head, Root = root})
+                        if FastAttackSettings.AutoClick then
+                            for _, plr in ipairs(Players:GetPlayers()) do
+                                if plr ~= localPlayer and plr.Character then
+                                    local head = plr.Character:FindFirstChild("Head")
+                                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                                    local hum = plr.Character:FindFirstChild("Humanoid")
+                                    if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
+                                        table.insert(targetsList, {Head = head, Root = root})
+                                    end
                                 end
                             end
                         end
@@ -1140,7 +1173,7 @@ RunService.RenderStepped:Connect(function()
             local enemiesFolder = Workspace:FindFirstChild("Enemies")
             if enemiesFolder then
                 for _, mob in ipairs(enemiesFolder:GetChildren()) do
-                    if isValidRaidEnemy(mob) then
+                    if isValidMob(mob) then
                         for _, part in ipairs(mob:GetDescendants()) do
                             if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
                                 if not originalHitboxSizes[part] then
@@ -1198,6 +1231,10 @@ RunService.RenderStepped:Connect(function()
 
         if AutoRaidSettings.Enabled then
             manageRaidFlight()
+        end
+
+        if AutoFarmMasterySettings.Enabled then
+            manageAutoFarmFlight()
         end
 
         if CamStates.PlayerCamActive then
