@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Aim-Based Camlocks, Key 'N' Menu Toggle, Saved Macros & Keybinds)
+-- Blox Fruits Hub (Aim-Based Camlocks, Customizable Menu Keybind, Saved Macros & Keybinds)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -48,7 +48,7 @@ local Keybinds = {
     SuperJump = Enum.KeyCode.L,
     LongDash = Enum.KeyCode.H,
     TpEnemy = Enum.KeyCode.T,
-    MenuToggle = Enum.KeyCode.N, -- Set to N as requested
+    MenuToggle = Enum.KeyCode.N, -- Default set to N, now fully customizable via UI
     MenuHide = Enum.KeyCode.B,
     AimbotKey = Enum.KeyCode.C,
     MacroKey = Enum.KeyCode.V
@@ -219,7 +219,7 @@ local function runMacroSequence()
     end)
 end
 
--- AIM-BASED Player Target (Finds player closest to center of screen / crosshair)
+-- Aim-Based Player Target
 local function findAimedPlayerTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -245,7 +245,7 @@ local function findAimedPlayerTarget()
     return bestTarget
 end
 
--- AIM-BASED NPC Target (Finds NPC closest to center of screen / crosshair)
+-- Aim-Based NPC Target
 local function findAimedNpcTarget()
     local bestTarget = nil
     local shortestScreenDist = math.huge
@@ -467,7 +467,7 @@ local function createContentScrollingFrame()
     local sf = Instance.new("ScrollingFrame")
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
-    sf.CanvasSize = UDim2.new(0, 0, 0, 500)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 550)
     sf.ScrollBarThickness = 4
     sf.Visible = false
     sf.Parent = ContentPanel
@@ -696,12 +696,14 @@ createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 125, f
     FOVCircle.Radius = val
 end)
 
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 185)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 225)
-createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 265)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 305)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 345)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 385)
+-- Added custom Open Menu Toggle Keybind here
+createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 185)
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 225)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 265)
+createKeybindRow(PvPFrame, "NPC Camlock Key", "NpcCam", 305)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 345)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 385)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 425)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -835,7 +837,6 @@ RunService.RenderStepped:Connect(function()
             manageRaidFlight()
         end
 
-        -- Aim-Based Camlock Execution Loops
         if CamStates.PlayerCamActive then
             local targetRoot = findAimedPlayerTarget()
             if targetRoot then
