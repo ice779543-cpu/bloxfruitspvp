@@ -1,4 +1,4 @@
--- Blox Fruits Hub (Updated with Auto Clicker & Keybind)
+-- Blox Fruits Hub (Updated without Player Tabs & Auto Clicker Fixed)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -10,24 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
-local isOwner = (localPlayer.Name == "Kjdaking918")
-
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. localPlayer.Name .. ".json"
-
-local commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
-if not commRemote and isOwner then
-    commRemote = Instance.new("RemoteEvent")
-    commRemote.Name = "BloxFruitHub_ResetComm"
-    commRemote.Parent = ReplicatedStorage
-elseif not commRemote then
-    task.spawn(function()
-        while not commRemote do
-            commRemote = ReplicatedStorage:FindFirstChild("BloxFruitHub_ResetComm")
-            task.wait(1)
-        end
-    end)
-end
 
 local function nukeEverythingOld()
     local namesToDestroy = {
@@ -66,7 +50,7 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     MenuToggle = Enum.KeyCode.M,
     MenuHide = Enum.KeyCode.B,
-    AutoClickerKey = Enum.KeyCode.C -- Default key to toggle Auto Clicker
+    AutoClickerKey = Enum.KeyCode.C
 }
 
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
@@ -74,28 +58,6 @@ local AutoClickerSettings = { Enabled = false, Delay = 0.05 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local ESPStates = { Enabled = true }
 local CombatStates = { PlayerCamActive = false, NpcCamActive = false, LockedTarget = nil }
-local SelectedTargetPlayer = nil
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if commRemote then break end
-    end
-    
-    commRemote.OnClientEvent:Connect(function(targetName)
-        if targetName == localPlayer.Name then
-            pcall(function()
-                local char = localPlayer.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.Health = 0 end
-                    local root = char:FindFirstChild("HumanoidRootPart")
-                    if root then root:BreakJoints() end
-                end
-            end)
-        end
-    end)
-end)
 
 local function getRegisterAttack()
     local success, res = pcall(function() return ReplicatedStorage.Modules.Net["RE/RegisterAttack"] end)
@@ -283,16 +245,6 @@ local function teleportBehindEnemy()
     end)
 end
 
-local function forceResetPlayer(targetPlr)
-    pcall(function()
-        if not isOwner then return end
-        if not targetPlr or targetPlr == localPlayer then return end
-        if commRemote then
-            commRemote:FireServer(targetPlr.Name)
-        end
-    end)
-end
-
 local function saveKeybinds()
     pcall(function()
         if writefile and HttpService then
@@ -382,7 +334,6 @@ end
 
 local RaidFrame = createContentScrollingFrame()
 local PvPFrame = createContentScrollingFrame()
-local PlayersFrame = createContentScrollingFrame()
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -399,7 +350,6 @@ local function createTabButton(name, yPos, targetFrame)
     btn.MouseButton1Click:Connect(function()
         RaidFrame.Visible = false
         PvPFrame.Visible = false
-        if PlayersFrame then PlayersFrame.Visible = false end
         targetFrame.Visible = true
     end)
     return btn
@@ -407,13 +357,6 @@ end
 
 createTabButton("Raid", 10, RaidFrame)
 createTabButton("PvP", 60, PvPFrame)
-
-if isOwner then
-    createTabButton("Players", 110, PlayersFrame)
-else
-    PlayersFrame:Destroy()
-    PlayersFrame = nil
-end
 
 RaidFrame.Visible = true
 
@@ -514,80 +457,6 @@ createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 245)
 createKeybindRow(PvPFrame, "Long Dash", "LongDash", 285)
 createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 325)
 createKeybindRow(PvPFrame, "Hide/Unhide UI", "MenuHide", 365)
-
-if isOwner and PlayersFrame then
-    local SelectedLabel = Instance.new("TextLabel")
-    SelectedLabel.Size = UDim2.new(1, -10, 0, 30)
-    SelectedLabel.Position = UDim2.new(0, 5, 0, 5)
-    SelectedLabel.BackgroundTransparency = 1
-    SelectedLabel.Font = Enum.Font.SourceSansBold
-    SelectedLabel.TextSize = 13
-    SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    SelectedLabel.Text = "Selected Target: None"
-    SelectedLabel.Parent = PlayersFrame
-
-    local PlayersListScroll = Instance.new("ScrollingFrame")
-    PlayersListScroll.Size = UDim2.new(1, -10, 0, 160)
-    PlayersListScroll.Position = UDim2.new(0, 5, 0, 40)
-    PlayersListScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-    PlayersListScroll.BorderSizePixel = 0
-    PlayersListScroll.ScrollBarThickness = 4
-    PlayersListScroll.Parent = PlayersFrame
-    Instance.new("UICorner", PlayersListScroll).CornerRadius = UDim.new(0, 6)
-
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.Padding = UDim.new(0, 3)
-    UIListLayout.Parent = PlayersListScroll
-
-    local ForceResetBtn = Instance.new("TextButton")
-    ForceResetBtn.Size = UDim2.new(1, -10, 0, 38)
-    ForceResetBtn.Position = UDim2.new(0, 5, 0, 210)
-    ForceResetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-    ForceResetBtn.Font = Enum.Font.SourceSansBold
-    ForceResetBtn.TextSize = 14
-    ForceResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ForceResetBtn.Text = "Force Reset Script User"
-    ForceResetBtn.Parent = PlayersFrame
-    Instance.new("UICorner", ForceResetBtn).CornerRadius = UDim.new(0, 6)
-
-    local function updatePlayersList()
-        for _, child in ipairs(PlayersListScroll:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-        
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer then
-                local pBtn = Instance.new("TextButton")
-                pBtn.Size = UDim2.new(1, -6, 0, 30)
-                pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-                pBtn.Font = Enum.Font.SourceSansBold
-                pBtn.TextSize = 12
-                pBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
-                pBtn.Text = plr.Name .. " (" .. plr.DisplayName .. ")"
-                pBtn.Parent = PlayersListScroll
-                Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 4)
-                
-                pBtn.MouseButton1Click:Connect(function()
-                    SelectedTargetPlayer = plr
-                    SelectedLabel.Text = "Selected Target: " .. plr.Name
-                end)
-            end
-        end
-        PlayersListScroll.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 33)
-    end
-
-    Players.PlayerAdded:Connect(updatePlayersList)
-    Players.PlayerRemoving:Connect(updatePlayersList)
-    updatePlayersList()
-
-    ForceResetBtn.MouseButton1Click:Connect(function()
-        if SelectedTargetPlayer then
-            forceResetPlayer(SelectedTargetPlayer)
-        end
-    end)
-end
 
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
@@ -758,7 +627,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Standard Fast Attack Loop
+-- Fast Attack Loop
 task.spawn(function()
     while true do
         pcall(function()
@@ -805,7 +674,7 @@ task.spawn(function()
     end
 end)
 
--- Safe Built-in Auto Clicker Loop (Works as a backup if Fast Attack fails)
+-- Auto Clicker Loop
 task.spawn(function()
     while true do
         pcall(function()
