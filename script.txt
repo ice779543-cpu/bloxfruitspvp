@@ -101,7 +101,6 @@ local function IsBlacklisted(name)
     return false
 end
 
--- Checks in-game Alliance/Crew system
 local function isAlly(plr)
     if not MiscSettings.AntiAlly then return false end
     if plr == localPlayer then return true end
@@ -131,13 +130,11 @@ local function isAlly(plr)
     return false
 end
 
--- Checks if a player can legitimately hunt/get your bounty (Level checks, team constraints, PvP status)
 local function canGetMyBounty(plr)
     if plr == localPlayer then return false end
     if isAlly(plr) then return false end
 
     local success, result = pcall(function()
-        -- Marines cannot hunt Marines, etc. Check Blox Fruits team structures
         local myTeam = localPlayer.Team and localPlayer.Team.Name or ""
         local targetTeam = plr.Team and plr.Team.Name or ""
 
@@ -145,7 +142,6 @@ local function canGetMyBounty(plr)
             return false
         end
 
-        -- Level gap check for bounty handling in Blox Fruits (usually within ~300 levels or based on game rules)
         local myData = localPlayer:FindFirstChild("Data")
         local targetData = plr:FindFirstChild("Data")
 
@@ -153,7 +149,6 @@ local function canGetMyBounty(plr)
             local myLevel = myData:FindFirstChild("Level") and myData.Level.Value or 0
             local targetLevel = targetData:FindFirstChild("Level") and targetData.Level.Value or 0
             
-            -- If the other player's level is way too low, they can't get your bounty
             if math.abs(myLevel - targetLevel) > 350 and myLevel > targetLevel then
                 return false
             end
@@ -617,7 +612,6 @@ local function manageRaidFlight()
     end)
 end
 
--- Manages Anti Bounty Lose Flight Logic
 local function manageAntiBountyFlight()
     pcall(function()
         if not MiscSettings.AntiBountyLose then return end
@@ -665,7 +659,6 @@ local function manageAntiBountyFlight()
                 bg.Parent = root
             end
 
-            -- Fly upwards and directly away from the threatening bounty hunter
             local awayDir = (root.Position - threatPos).Unit
             local escapeVelocity = (awayDir + Vector3.new(0, 1.2, 0)).Unit * MiscSettings.AntiBountyFlySpeed
             bv.Velocity = escapeVelocity
@@ -835,7 +828,7 @@ end
 local FarmRaidFrame = createContentScrollingFrame(300)
 local PvPFrame = createContentScrollingFrame(620)
 local MacroFrame = createContentScrollingFrame(420)
-local MiscFrame = createContentScrollingFrame(360) -- Expanded canvas for new slider
+local MiscFrame = createContentScrollingFrame(360)
 local FruitFrame = createContentScrollingFrame(300)
 local NpcFrame = createContentScrollingFrame(450)
 
@@ -1305,6 +1298,7 @@ if not espFolder then
     if not espFolder.Parent then espFolder.Parent = ScreenGui end
 end
 
+-- Updated Fast Attack loop handling BOTH NPCs and Players simultaneously
 task.spawn(function()
     while true do
         pcall(function()
@@ -1315,6 +1309,7 @@ task.spawn(function()
                     if myRoot then
                         local targetsList = {}
                         
+                        -- 1. Target NPCs (Enemies folder)
                         local enemiesFolder = Workspace:FindFirstChild("Enemies")
                         if enemiesFolder then
                             for _, mob in pairs(enemiesFolder:GetChildren()) do
@@ -1324,6 +1319,22 @@ task.spawn(function()
                                     local hum = mob:FindFirstChild("Humanoid")
                                     if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= 120 then
                                         table.insert(targetsList, {Head = head, Root = root})
+                                    end
+                                end
+                            end
+                        end
+
+                        -- 2. Target Players (PvP)
+                        for _, plr in ipairs(Players:GetPlayers()) do
+                            if plr ~= localPlayer and not isAlly(plr) and plr.Character then
+                                local pChar = plr.Character
+                                local pHum = pChar:FindFirstChild("Humanoid")
+                                local pRoot = pChar:FindFirstChild("HumanoidRootPart")
+                                local pHead = pChar:FindFirstChild("Head")
+                                
+                                if pHum and pHum.Health > 0 and pRoot and pHead then
+                                    if (pRoot.Position - myRoot.Position).Magnitude <= 120 then
+                                        table.insert(targetsList, {Head = pHead, Root = pRoot})
                                     end
                                 end
                             end
@@ -1409,25 +1420,22 @@ RunService.RenderStepped:Connect(function()
             for _, plr in ipairs(Players:GetPlayers()) do
                 if plr ~= localPlayer and not isAlly(plr) and plr.Character then
                     local hum = plr.Character:FindFirstChild("Humanoid")
-                    if hum and hum.Health > 0 then
-                        for _, part in ipairs(plr.Character:GetDescendants()) do
-                            if part:IsA("BasePart") and not part:IsA("Accessory") and not part.Parent:IsA("Accessory") then
-                                if not originalPlayerHitboxSizes[part] then
-                                    originalPlayerHitboxSizes[part] = {
-                                        size = part.Size,
-                                        transparency = part.Transparency,
-                                        material = part.Material,
-                                        canCollide = part.CanCollide
-                                    }
-                                end
-                                local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
-                                part.Size = Vector3.new(safeSize, safeSize, safeSize)
-                                part.Transparency = PlayerHitboxSettings.Transparency / 100
-                                part.Material = PlayerHitboxSettings.Transparency >= 100 and Enum.Material.SmoothPlastic or Enum.Material.Neon
-                                part.Color = Color3.fromRGB(100, 150, 255)
-                                part.CanCollide = false
-                            end
+                    local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and rootPart then
+                        if not originalPlayerHitboxSizes[rootPart] then
+                            originalPlayerHitboxSizes[rootPart] = {
+                                size = rootPart.Size,
+                                transparency = rootPart.Transparency,
+                                material = rootPart.Material,
+                                canCollide = rootPart.CanCollide
+                            }
                         end
+                        local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
+                        rootPart.Size = Vector3.new(safeSize, safeSize, safeSize)
+                        rootPart.Transparency = PlayerHitboxSettings.Transparency / 100
+                        rootPart.Material = PlayerHitboxSettings.Transparency >= 100 and Enum.Material.SmoothPlastic or Enum.Material.Neon
+                        rootPart.Color = Color3.fromRGB(100, 150, 255)
+                        rootPart.CanCollide = false
                     end
                 end
             end
@@ -1610,11 +1618,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.NpcCamActive = false
                 CamStates.LockedNpcTarget = nil
             else
-                Level = findAimedNpcTarget()
-                local target = findAimedNpcTarget()
-                if target then
+                val = findAimedNpcTarget()
+                if val then
                     CamStates.NpcCamActive = true
-                    CamStates.LockedNpcTarget = target
+                    CamStates.LockedNpcTarget = val
                     CamStates.PlayerCamActive = false
                     CamStates.LockedPlayerTarget = nil
                 end
