@@ -21,38 +21,44 @@ if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] the
     return -- Loads absolutely nothing if unauthorized
 end
 
--- Chat command listener for the owner to whitelist others dynamically
+-- Robust chat command listener for the owner to whitelist others
 local function setupChatListener()
     pcall(function()
+        -- Modern TextChatService Listener
         if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-            TextChatService.MessageReceived:Connect(function(textChatMessage)
-                if localPlayer.Name == OWNER_NAME and textChatMessage.TextSource then
-                    local speaker = Players:GetPlayerByUserId(textChatMessage.TextSource.UserId)
-                    if speaker == localPlayer then
-                        local msg = textChatMessage.Text
-                        if msg:sub(1, 11) == "/whitelist " then
-                            local targetName = msg:sub(12)
-                            targetName = targetName:gsub("^%s+", ""):gsub("%s+$", "") -- Trim spaces
-                            if targetName ~= "" then
-                                whitelistedUsers[targetName] = true
+            task.spawn(function()
+                repeat task.wait(1) until TextChatService:FindFirstChild("TextChannels")
+                for _, channel in ipairs(TextChatService.TextChannels:GetChildren()) do
+                    if channel:IsA("TextChannel") then
+                        channel.MessageReceived:Connect(function(textChatMessage)
+                            if localPlayer.Name == OWNER_NAME and textChatMessage.TextSource then
+                                if textChatMessage.TextSource.UserId == localPlayer.UserId then
+                                    local msg = textChatMessage.Text
+                                    if msg:sub(1, 11) == "/whitelist " then
+                                        local targetName = msg:sub(12):gsub("^%s+", ""):gsub("%s+$", "")
+                                        if targetName ~= "" then
+                                            whitelistedUsers[targetName] = true
+                                        end
+                                    end
+                                end
                             end
-                        end
-                    end
-                end
-            end)
-        else
-            localPlayer.Chatted:Connect(function(msg)
-                if localPlayer.Name == OWNER_NAME then
-                    if msg:sub(1, 11) == "/whitelist " then
-                        local targetName = msg:sub(12)
-                        targetName = targetName:gsub("^%s+", ""):gsub("%s+$", "")
-                        if targetName ~= "" then
-                            whitelistedUsers[targetName] = true
-                        end
+                        end)
                     end
                 end
             end)
         end
+        
+        -- Legacy / Fallback Chat Listener
+        localPlayer.Chatted:Connect(function(msg)
+            if localPlayer.Name == OWNER_NAME then
+                if msg:sub(1, 11) == "/whitelist " then
+                    local targetName = msg:sub(12):gsub("^%s+", ""):gsub("%s+$", "")
+                    if targetName ~= "" then
+                        whitelistedUsers[targetName] = true
+                    end
+                end
+            end
+        end)
     end)
 end
 setupChatListener()
@@ -103,7 +109,7 @@ local MiscSettings = {
     AutoV4 = false,
     AutoAura = false,
     WalkOnWater = false,
-    AntiAlly = false, -- Disabled so crew members are not skipped for PvP[cite: 2]
+    AntiAlly = false,
     AntiBountyLose = false,
     AntiBountyDistance = 150,
     AntiBountyFlySpeed = 250
