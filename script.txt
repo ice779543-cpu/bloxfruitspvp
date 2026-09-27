@@ -654,7 +654,8 @@ local function createContentScrollingFrame(canvasHeight)
     return sf
 end
 
-local FarmRaidFrame = createContentScrollingFrame(400)
+local FarmFrame = createContentScrollingFrame(300)
+local RaidFrame = createContentScrollingFrame(300)
 local PvPFrame = createContentScrollingFrame(580)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(300)
@@ -674,7 +675,8 @@ local function createTabButton(name, yPos, targetFrame)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     
     btn.MouseButton1Click:Connect(function()
-        FarmRaidFrame.Visible = false
+        FarmFrame.Visible = false
+        RaidFrame.Visible = false
         PvPFrame.Visible = false
         MacroFrame.Visible = false
         MiscFrame.Visible = false
@@ -685,14 +687,15 @@ local function createTabButton(name, yPos, targetFrame)
     return btn
 end
 
-createTabButton("Farm/Raid", 8, FarmRaidFrame)
-createTabButton("PvP", 48, PvPFrame)
-createTabButton("Macro", 88, MacroFrame)
-createTabButton("Misc", 128, MiscFrame)
-createTabButton("Fruit Notifier", 168, FruitFrame)
-createTabButton("NPC", 208, NpcFrame)
+createTabButton("Farm", 8, FarmFrame)
+createTabButton("Raid", 48, RaidFrame)
+createTabButton("PvP", 88, PvPFrame)
+createTabButton("Macro", 128, MacroFrame)
+createTabButton("Misc", 168, MiscFrame)
+createTabButton("Fruit Notifier", 208, FruitFrame)
+createTabButton("NPC", 248, NpcFrame)
 
-FarmRaidFrame.Visible = true
+FarmFrame.Visible = true
 
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
@@ -901,9 +904,8 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     end)
 end
 
--- Farm/Raid Tab Controls
-local btnAutoFarmMastery = createToggleRow(FarmRaidFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
-local btnAutoRaid = createToggleRow(FarmRaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 45)
+-- Farm Tab Controls
+local btnAutoFarmMastery = createToggleRow(FarmFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
 
 btnAutoFarmMastery.MouseButton1Click:Connect(function()
     AutoFarmMasterySettings.Enabled = not AutoFarmMasterySettings.Enabled
@@ -923,6 +925,9 @@ btnAutoFarmMastery.MouseButton1Click:Connect(function()
         end
     end
 end)
+
+-- Raid Tab Controls
+local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 btnAutoRaid.MouseButton1Click:Connect(function()
     AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
