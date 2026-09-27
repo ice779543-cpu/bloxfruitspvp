@@ -620,17 +620,15 @@ local function manageAntiBountyFlight()
         local hum = char and char:FindFirstChild("Humanoid")
         if not root or not hum or hum.Health <= 0 then return end
 
-        local threatPos = nil
-        local closestThreatDist = math.huge
-
+        local threatDetected = false
         for _, plr in ipairs(Players:GetPlayers()) do
             if canGetMyBounty(plr) and plr.Character then
                 local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                 if pRoot then
                     local dist = (pRoot.Position - root.Position).Magnitude
-                    if dist <= MiscSettings.AntiBountyDistance and dist < closestThreatDist then
-                        closestThreatDist = dist
-                        threatPos = pRoot.Position
+                    if dist <= MiscSettings.AntiBountyDistance then
+                        threatDetected = true
+                        break
                     end
                 end
             end
@@ -639,7 +637,7 @@ local function manageAntiBountyFlight()
         local bv = root:FindFirstChild("AntiBountyFlyBV")
         local bg = root:FindFirstChild("AntiBountyFlyBG")
 
-        if threatPos then
+        if threatDetected then
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then part.CanCollide = false end
             end
@@ -659,13 +657,16 @@ local function manageAntiBountyFlight()
                 bg.Parent = root
             end
 
-            local awayDir = (root.Position - threatPos).Unit
-            local escapeVelocity = (awayDir + Vector3.new(0, 1.2, 0)).Unit * MiscSettings.AntiBountyFlySpeed
-            bv.Velocity = escapeVelocity
-            bg.CFrame = CFrame.new(root.Position, root.Position + escapeVelocity)
+            -- Fly straight up infinitely until toggled off
+            local upVelocity = Vector3.new(0, MiscSettings.AntiBountyFlySpeed, 0)
+            bv.Velocity = upVelocity
+            bg.CFrame = CFrame.new(root.Position, root.Position + Vector3.new(0, 1, 0))
         else
             if bv then bv:Destroy() end
             if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
         end
     end)
 end
@@ -1298,7 +1299,6 @@ if not espFolder then
     if not espFolder.Parent then espFolder.Parent = ScreenGui end
 end
 
--- Updated Fast Attack loop handling BOTH NPCs and Players simultaneously
 task.spawn(function()
     while true do
         pcall(function()
