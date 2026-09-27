@@ -48,12 +48,16 @@ local MiscSettings = {
     AutoV3 = false,
     AutoV4 = false,
     AutoAura = false,
-    WalkOnWater = false
+    WalkOnWater = false,
+    AntiAlly = true,
+    AntiBountyLose = false,
+    AntiBountyDistance = 150,
+    AntiBountyFlySpeed = 250
 }
 
 local FruitNotifierSettings = { Enabled = false }
-local NpcHitboxSettings = { Enabled = false, Size = 15 }
-local PlayerHitboxSettings = { Enabled = false, Size = 15 }
+local NpcHitboxSettings = { Enabled = false, Size = 15, Transparency = 70 }
+local PlayerHitboxSettings = { Enabled = false, Size = 15, Transparency = 70 }
 
 local originalHitboxSizes = {}
 local originalPlayerHitboxSizes = {}
@@ -94,6 +98,75 @@ local function IsBlacklisted(name)
     for _, keyword in ipairs(BlacklistKeywords) do
         if lowerName:find(keyword:lower()) then return true end
     end
+    return false
+end
+
+-- Checks in-game Alliance/Crew system
+local function isAlly(plr)
+    if not MiscSettings.AntiAlly then return false end
+    if plr == localPlayer then return true end
+    
+    local success, result = pcall(function()
+        local myData = localPlayer:FindFirstChild("Data")
+        local targetData = plr:FindFirstChild("Data")
+        
+        if myData and targetData then
+            local myCrew = myData:FindFirstChild("Crew") or myData:FindFirstChild("Alliance")
+            local targetCrew = targetData:FindFirstChild("Crew") or targetData:FindFirstChild("Alliance")
+            if myCrew and targetCrew and myCrew.Value ~= "" and myCrew.Value == targetCrew.Value then
+                return true
+            end
+        end
+
+        if localPlayer.Team and plr.Team and localPlayer.Team == plr.Team then
+            if localPlayer.Team.Name ~= "Pirates" then
+                return true
+            end
+        end
+
+        return false
+    end)
+
+    if success then return result end
+    return false
+end
+
+-- Checks if a player can legitimately hunt/get your bounty (Level checks, team constraints, PvP status)
+local function canGetMyBounty(plr)
+    if plr == localPlayer then return false end
+    if isAlly(plr) then return false end
+
+    local success, result = pcall(function()
+        -- Marines cannot hunt Marines, etc. Check Blox Fruits team structures
+        local myTeam = localPlayer.Team and localPlayer.Team.Name or ""
+        local targetTeam = plr.Team and plr.Team.Name or ""
+
+        if myTeam == "Marines" and targetTeam == "Marines" then
+            return false
+        end
+
+        -- Level gap check for bounty handling in Blox Fruits (usually within ~300 levels or based on game rules)
+        local myData = localPlayer:FindFirstChild("Data")
+        local targetData = plr:FindFirstChild("Data")
+
+        if myData and targetData then
+            local myLevel = myData:FindFirstChild("Level") and myData.Level.Value or 0
+            local targetLevel = targetData:FindFirstChild("Level") and targetData.Level.Value or 0
+            
+            -- If the other player's level is way too low, they can't get your bounty
+            if math.abs(myLevel - targetLevel) > 350 and myLevel > targetLevel then
+                return false
+            end
+        end
+
+        local char = plr.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+
+        return true
+    end)
+
+    if success then return result end
     return false
 end
 
@@ -192,16 +265,61 @@ local function isValidMob(mob)
         local root = mob:FindFirstChild("HumanoidRootPart")
         if not hum or not root then return false end
         if hum.Health <= 0 then return false end
-        
-        local mobNameLower = mob.Name:lower()
-        for _, targetName in ipairs(AutoFarmMasterySettings.TargetNames) do
-            if mobNameLower:find(targetName) then
-                return true
-            end
-        end
-        return false
+        return true
     end)
     return success and result
+end
+
+local function findAimedNpcTarget()
+    local bestTarget = nil
+    local shortestDist = math.huge
+    local screenSize = camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidMob(mob) then
+                local root = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
+                if root then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if screenDist < shortestDist then
+                            shortestDist = screenDist
+                            bestTarget = root
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget
+end
+
+local function findAimedPlayerTarget()
+    local bestTarget = nil
+    local shortestDist = math.huge
+    local screenSize = camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer and not isAlly(plr) and plr.Character then
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and root then
+                local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+                if onScreen then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if screenDist < shortestDist then
+                        shortestDist = screenDist
+                        bestTarget = root
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget
 end
 
 local function getRegisterAttack()
@@ -499,6 +617,66 @@ local function manageRaidFlight()
     end)
 end
 
+-- Manages Anti Bounty Lose Flight Logic
+local function manageAntiBountyFlight()
+    pcall(function()
+        if not MiscSettings.AntiBountyLose then return end
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not root or not hum or hum.Health <= 0 then return end
+
+        local threatPos = nil
+        local closestThreatDist = math.huge
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if canGetMyBounty(plr) and plr.Character then
+                local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                if pRoot then
+                    local dist = (pRoot.Position - root.Position).Magnitude
+                    if dist <= MiscSettings.AntiBountyDistance and dist < closestThreatDist then
+                        closestThreatDist = dist
+                        threatPos = pRoot.Position
+                    end
+                end
+            end
+        end
+
+        local bv = root:FindFirstChild("AntiBountyFlyBV")
+        local bg = root:FindFirstChild("AntiBountyFlyBG")
+
+        if threatPos then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "AntiBountyFlyBV"
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Velocity = Vector3.new(0, 0, 0)
+                bv.Parent = root
+            end
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "AntiBountyFlyBG"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.CFrame = root.CFrame
+                bg.Parent = root
+            end
+
+            -- Fly upwards and directly away from the threatening bounty hunter
+            local awayDir = (root.Position - threatPos).Unit
+            local escapeVelocity = (awayDir + Vector3.new(0, 1.2, 0)).Unit * MiscSettings.AntiBountyFlySpeed
+            bv.Velocity = escapeVelocity
+            bg.CFrame = CFrame.new(root.Position, root.Position + escapeVelocity)
+        else
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
+        end
+    end)
+end
+
 local waterPlatform = nil
 local function manageWaterPlatform()
     pcall(function()
@@ -654,13 +832,12 @@ local function createContentScrollingFrame(canvasHeight)
     return sf
 end
 
-local FarmFrame = createContentScrollingFrame(300)
-local RaidFrame = createContentScrollingFrame(300)
-local PvPFrame = createContentScrollingFrame(580)
+local FarmRaidFrame = createContentScrollingFrame(300)
+local PvPFrame = createContentScrollingFrame(620)
 local MacroFrame = createContentScrollingFrame(420)
-local MiscFrame = createContentScrollingFrame(300)
+local MiscFrame = createContentScrollingFrame(360) -- Expanded canvas for new slider
 local FruitFrame = createContentScrollingFrame(300)
-local NpcFrame = createContentScrollingFrame(350)
+local NpcFrame = createContentScrollingFrame(450)
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -668,15 +845,14 @@ local function createTabButton(name, yPos, targetFrame)
     btn.Position = UDim2.new(0, 5, 0, yPos)
     btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 13
+    btn.TextSize = 12
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Text = name
     btn.Parent = TabContainer
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     
     btn.MouseButton1Click:Connect(function()
-        FarmFrame.Visible = false
-        RaidFrame.Visible = false
+        FarmRaidFrame.Visible = false
         PvPFrame.Visible = false
         MacroFrame.Visible = false
         MiscFrame.Visible = false
@@ -687,15 +863,14 @@ local function createTabButton(name, yPos, targetFrame)
     return btn
 end
 
-createTabButton("Farm", 8, FarmFrame)
-createTabButton("Raid", 48, RaidFrame)
-createTabButton("PvP", 88, PvPFrame)
-createTabButton("Macro", 128, MacroFrame)
-createTabButton("Misc", 168, MiscFrame)
-createTabButton("Fruit Notifier", 208, FruitFrame)
-createTabButton("NPC", 248, NpcFrame)
+createTabButton("Farm/Raid", 8, FarmRaidFrame)
+createTabButton("PvP", 48, PvPFrame)
+createTabButton("Macro", 88, MacroFrame)
+createTabButton("Misc", 128, MiscFrame)
+createTabButton("Fruit Notifier", 168, FruitFrame)
+createTabButton("NPC", 208, NpcFrame)
 
-FarmFrame.Visible = true
+FarmRaidFrame.Visible = true
 
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
@@ -904,8 +1079,8 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     end)
 end
 
--- Farm Tab Controls
-local btnAutoFarmMastery = createToggleRow(FarmFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
+local btnAutoFarmMastery = createToggleRow(FarmRaidFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
+local btnAutoRaid = createToggleRow(FarmRaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 45)
 
 btnAutoFarmMastery.MouseButton1Click:Connect(function()
     AutoFarmMasterySettings.Enabled = not AutoFarmMasterySettings.Enabled
@@ -925,9 +1100,6 @@ btnAutoFarmMastery.MouseButton1Click:Connect(function()
         end
     end
 end)
-
--- Raid Tab Controls
-local btnAutoRaid = createToggleRow(RaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 btnAutoRaid.MouseButton1Click:Connect(function()
     AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
@@ -967,17 +1139,21 @@ createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Siz
     PlayerHitboxSettings.Size = val
 end)
 
-createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 225, function(val)
+createSliderRow(PvPFrame, "Player Hitbox Transparency", 0, 100, PlayerHitboxSettings.Transparency, 225, function(val)
+    PlayerHitboxSettings.Transparency = val
+end)
+
+createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 285, function(val)
     FOVSettings.Radius = val
     FOVCircle.Radius = val
 end)
 
-createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 285)
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 325)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 365)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 405)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 445)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 485)
+createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 345)
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 385)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 425)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 465)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 505)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 545)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -988,6 +1164,13 @@ local btnAutoV3 = createToggleRow(MiscFrame, "Auto V3 Ability", MiscSettings.Aut
 local btnAutoV4 = createToggleRow(MiscFrame, "Auto V4 Transformation", MiscSettings.AutoV4, 45)
 local btnAutoAura = createToggleRow(MiscFrame, "Auto Aura (Buso Haki)", MiscSettings.AutoAura, 85)
 local btnWalkOnWater = createToggleRow(MiscFrame, "Walk on Water", MiscSettings.WalkOnWater, 125)
+local btnAntiAlly = createToggleRow(MiscFrame, "Anti-Ally (Skip In-Game Allies)", MiscSettings.AntiAlly, 165)
+local btnAntiBounty = createToggleRow(MiscFrame, "Anti Bounty Lose (Fly Away)", MiscSettings.AntiBountyLose, 205)
+
+createSliderRow(MiscFrame, "Anti Bounty Trigger Distance", 50, 400, MiscSettings.AntiBountyDistance, 245, function(val)
+    MiscSettings.AntiBountyDistance = val
+    saveSettings()
+end)
 
 btnAutoV3.MouseButton1Click:Connect(function()
     MiscSettings.AutoV3 = not MiscSettings.AutoV3
@@ -1017,6 +1200,33 @@ btnWalkOnWater.MouseButton1Click:Connect(function()
     if not MiscSettings.WalkOnWater and waterPlatform then
         waterPlatform:Destroy()
         waterPlatform = nil
+    end
+    saveSettings()
+end)
+
+btnAntiAlly.MouseButton1Click:Connect(function()
+    MiscSettings.AntiAlly = not MiscSettings.AntiAlly
+    btnAntiAlly.Text = MiscSettings.AntiAlly and "ON" or "OFF"
+    btnAntiAlly.TextColor3 = MiscSettings.AntiAlly and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    saveSettings()
+end)
+
+btnAntiBounty.MouseButton1Click:Connect(function()
+    MiscSettings.AntiBountyLose = not MiscSettings.AntiBountyLose
+    btnAntiBounty.Text = MiscSettings.AntiBountyLose and "ON" or "OFF"
+    btnAntiBounty.TextColor3 = MiscSettings.AntiBountyLose and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not MiscSettings.AntiBountyLose then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if root:FindFirstChild("AntiBountyFlyBV") then root.AntiBountyFlyBV:Destroy() end
+            if root:FindFirstChild("AntiBountyFlyBG") then root.AntiBountyFlyBG:Destroy() end
+        end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
     end
     saveSettings()
 end)
@@ -1054,7 +1264,11 @@ createSliderRow(NpcFrame, "Hitbox Size", 1, 100, NpcHitboxSettings.Size, 45, fun
     NpcHitboxSettings.Size = val
 end)
 
-createKeybindRow(NpcFrame, "NPC Camlock Key", "NpcCam", 105)
+createSliderRow(NpcFrame, "Hitbox Transparency", 0, 100, NpcHitboxSettings.Transparency, 105, function(val)
+    NpcHitboxSettings.Transparency = val
+end)
+
+createKeybindRow(NpcFrame, "NPC Camlock Key", "NpcCam", 165)
 
 Workspace.DescendantAdded:Connect(function(obj)
     if FruitNotifierSettings.Enabled then
@@ -1094,7 +1308,7 @@ end
 task.spawn(function()
     while true do
         pcall(function()
-            if FastAttackSettings.AutoClick or AutoFarmMasterySettings.Enabled then
+            if FastAttackSettings.AutoClick then
                 local char = localPlayer.Character
                 if char and char:FindFirstChildOfClass("Tool") then
                     local myRoot = char:FindFirstChild("HumanoidRootPart")
@@ -1104,24 +1318,11 @@ task.spawn(function()
                         local enemiesFolder = Workspace:FindFirstChild("Enemies")
                         if enemiesFolder then
                             for _, mob in pairs(enemiesFolder:GetChildren()) do
-                                if isValidMob(mob) or (FastAttackSettings.AutoClick and isValidMob(mob)) then
+                                if isValidMob(mob) then
                                     local head = mob:FindFirstChild("Head")
                                     local root = mob:FindFirstChild("HumanoidRootPart")
                                     local hum = mob:FindFirstChild("Humanoid")
                                     if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= 120 then
-                                        table.insert(targetsList, {Head = head, Root = root})
-                                    end
-                                end
-                            end
-                        end
-
-                        if FastAttackSettings.AutoClick then
-                            for _, plr in ipairs(Players:GetPlayers()) do
-                                if plr ~= localPlayer and plr.Character then
-                                    local head = plr.Character:FindFirstChild("Head")
-                                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                                    local hum = plr.Character:FindFirstChild("Humanoid")
-                                    if head and root and hum and hum.Health > 0 and (root.Position - myRoot.Position).Magnitude <= FastAttackSettings.Distance then
                                         table.insert(targetsList, {Head = head, Root = root})
                                     end
                                 end
@@ -1191,8 +1392,8 @@ RunService.RenderStepped:Connect(function()
                                 end
                                 local safeSize = math.clamp(NpcHitboxSettings.Size, 1, 100)
                                 part.Size = Vector3.new(safeSize, safeSize, safeSize)
-                                part.Transparency = 0.7
-                                part.Material = Enum.Material.Neon
+                                part.Transparency = NpcHitboxSettings.Transparency / 100
+                                part.Material = NpcHitboxSettings.Transparency >= 100 and Enum.Material.SmoothPlastic or Enum.Material.Neon
                                 part.Color = Color3.fromRGB(255, 100, 100)
                                 part.CanCollide = false
                             end
@@ -1206,7 +1407,7 @@ RunService.RenderStepped:Connect(function()
 
         if PlayerHitboxSettings.Enabled then
             for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and plr.Character then
+                if plr ~= localPlayer and not isAlly(plr) and plr.Character then
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if hum and hum.Health > 0 then
                         for _, part in ipairs(plr.Character:GetDescendants()) do
@@ -1221,8 +1422,8 @@ RunService.RenderStepped:Connect(function()
                                 end
                                 local safeSize = math.clamp(PlayerHitboxSettings.Size, 1, 100)
                                 part.Size = Vector3.new(safeSize, safeSize, safeSize)
-                                part.Transparency = 0.7
-                                part.Material = Enum.Material.Neon
+                                part.Transparency = PlayerHitboxSettings.Transparency / 100
+                                part.Material = PlayerHitboxSettings.Transparency >= 100 and Enum.Material.SmoothPlastic or Enum.Material.Neon
                                 part.Color = Color3.fromRGB(100, 150, 255)
                                 part.CanCollide = false
                             end
@@ -1242,10 +1443,19 @@ RunService.RenderStepped:Connect(function()
             manageAutoFarmFlight()
         end
 
+        if MiscSettings.AntiBountyLose then
+            manageAntiBountyFlight()
+        end
+
         if CamStates.PlayerCamActive then
             if CamStates.LockedPlayerTarget and CamStates.LockedPlayerTarget.Parent then
-                local hum = CamStates.LockedPlayerTarget.Parent:FindFirstChild("Humanoid")
-                if hum and hum.Health > 0 then
+                local character = CamStates.LockedPlayerTarget.Parent
+                local plr = Players:GetPlayerFromCharacter(character)
+                local hum = character:FindFirstChild("Humanoid")
+                if plr and isAlly(plr) then
+                    CamStates.PlayerCamActive = false
+                    CamStates.LockedPlayerTarget = nil
+                elseif hum and hum.Health > 0 then
                     camera.CFrame = CFrame.new(camera.CFrame.Position, CamStates.LockedPlayerTarget.Position)
                 else
                     CamStates.PlayerCamActive = false
@@ -1286,7 +1496,9 @@ RunService.RenderStepped:Connect(function()
                         if stats and stats:FindFirstChild("Level") then playerLevel = tostring(stats.Level.Value) end
 
                         local espColor = Color3.fromRGB(255, 50, 50)
-                        if plr.Team then
+                        if isAlly(plr) then
+                            espColor = Color3.fromRGB(0, 255, 128)
+                        elseif plr.Team then
                             local teamName = tostring(plr.Team.Name):lower()
                             if teamName:find("marine") then
                                 espColor = Color3.fromRGB(50, 150, 255)
@@ -1339,7 +1551,7 @@ RunService.RenderStepped:Connect(function()
             local target = nil
             local shortestDist = math.huge
             for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and plr.Character then
+                if plr ~= localPlayer and not isAlly(plr) and plr.Character then
                     local root = plr.Character:FindFirstChild("HumanoidRootPart")
                     local hum = plr.Character:FindFirstChild("Humanoid")
                     if root and hum and hum.Health > 0 then
@@ -1398,6 +1610,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.NpcCamActive = false
                 CamStates.LockedNpcTarget = nil
             else
+                Level = findAimedNpcTarget()
                 local target = findAimedNpcTarget()
                 if target then
                     CamStates.NpcCamActive = true
@@ -1410,7 +1623,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
             local closestRoot = nil
             local shortestDist = math.huge
             for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and plr.Character then
+                if plr ~= localPlayer and not isAlly(plr) and plr.Character then
                     local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                     if enemyRoot and root then
                         local dist = (enemyRoot.Position - root.Position).Magnitude
