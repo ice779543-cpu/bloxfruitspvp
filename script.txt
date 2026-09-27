@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = false
+local PUBLIC_ACCESS = true
 
 -- Access verification check
 local players = game:GetService("Players")
@@ -34,7 +34,7 @@ local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Nam
 
 pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
-        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") or obj.Name:find("NPCHitboxGUI") or obj.Name:find("SuccessPopupGui") then
+        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") or obj.Name:find("NPCHitboxGUI") or obj.Name:find("SuccessPopupGui") or obj.Name == "MaterialSelectionModal" then
             obj:Destroy()
         end
     end
@@ -63,6 +63,103 @@ local AutoFarmMasterySettings = {
     Enabled = false,
     FlySpeed = 220,
     TargetNames = {"candy warrior", "sweet thief", "candy rebel", "chocolate bar battler"}
+}
+
+local AutoFarmHauntedSettings = {
+    Enabled = false,
+    FlySpeed = 220,
+    TargetNames = {"Reborn Skeleton", "Living Zombie", "Demonic Soul", "Posessed Mummy"},
+    BasePosition = Vector3.new(-9515, 142, 5535)
+}
+
+-- Fallback island coordinates for mobs when they aren't loaded in Workspace.Enemies
+local MobSpawnLocations = {
+    -- Sea 1
+    ["Pirate"] = Vector3.new(-1145, 14, 3850),
+    ["Brute"] = Vector3.new(-1145, 14, 4300),
+    ["God's Guard"] = Vector3.new(-4720, 845, -1950),
+    ["Shanda"] = Vector3.new(-7860, 5545, -380),
+    ["Wysper"] = Vector3.new(-7920, 5545, -380),
+    ["Military Soldier"] = Vector3.new(-2750, 72, -2980),
+    ["Military Spy"] = Vector3.new(-2880, 72, -3000),
+    ["Fishman Warrior"] = Vector3.new(61122, 18, 1568),
+    ["Fishman Commando"] = Vector3.new(61122, 18, 1568),
+    
+    -- Sea 2
+    ["Magma Ninja"] = Vector3.new(-5430, 80, -4850),
+    ["Ship Deckhand"] = Vector3.new(9050, 125, 32800),
+    ["Ship Engineer"] = Vector3.new(9050, 125, 32800),
+    ["Ship Steward"] = Vector3.new(9050, 125, 32800),
+    ["Ship Officer"] = Vector3.new(9050, 125, 32800),
+    ["Water Fighter"] = Vector3.new(600, 25, 3000),
+    ["Tide Keeper"] = Vector3.new(-3700, 10, -11400),
+    ["Factory Staff"] = Vector3.new(430, 120, -430),
+    ["Vampire"] = Vector3.new(-6000, 10, -1300),
+
+    -- Sea 3
+    ["Mythological Pirate"] = Vector3.new(-13500, 470, -7000),
+    ["Jungle Pirate"] = Vector3.new(-12000, 330, -10500),
+    ["Fishman Captain"] = Vector3.new(-10900, 330, -9000),
+    ["Fishman Raider"] = Vector3.new(-10500, 330, -9000),
+    ["Chocolate Bar Battler"] = Vector3.new(200, 25, 25000),
+    ["Sweet Thief"] = Vector3.new(700, 25, 24500),
+    ["Candy Rebel"] = Vector3.new(1000, 25, 24200),
+    ["Dragon Crew Archer"] = Vector3.new(5700, 600, 100),
+    ["Dragon Crew Warrior"] = Vector3.new(5800, 600, 300),
+    ["Pistol Billionaire"] = Vector3.new(-2100, 40, -12000),
+    ["Demonic Soul"] = Vector3.new(-9515, 142, 5535),
+    ["Posessed Mummy"] = Vector3.new(-9515, 142, 5535),
+    ["Reborn Skeleton"] = Vector3.new(-9515, 142, 5535),
+    ["Living Zombie"] = Vector3.new(-9515, 142, 5535)
+}
+
+-- Material Data categorized by Seas
+local MaterialData = {
+    ["Sea 1"] = {
+        { Name = "Leather", Mobs = {"Pirate", "Brute", "God's Guard"} },
+        { Name = "Angel Wings", Mobs = {"God's Guard", "Shanda", "Wysper"} },
+        { Name = "Magma Ore", Mobs = {"Military Soldier", "Military Spy"} },
+        { Name = "Fish Tail", Mobs = {"Fishman Warrior", "Fishman Commando"} },
+        { Name = "Fools Gold", Mobs = {"Pirate"} }
+    },
+    ["Sea 2"] = {
+        { Name = "Magma Ore", Mobs = {"Magma Ninja"} },
+        { Name = "Ectoplasm", Mobs = {"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"} },
+        { Name = "Mystic Droplet", Mobs = {"Water Fighter", "Tide Keeper"} },
+        { Name = "Radioactive Material", Mobs = {"Factory Staff"} },
+        { Name = "Vampire Fang", Mobs = {"Vampire"} }
+    },
+    ["Sea 3"] = {
+        { Name = "Mini Tusk", Mobs = {"Mythological Pirate", "Jungle Pirate"} },
+        { Name = "Fish Tail", Mobs = {"Fishman Captain", "Fishman Raider"} },
+        { Name = "Conjured Cocoa", Mobs = {"Chocolate Bar Battler", "Sweet Thief", "Candy Rebel"} },
+        { Name = "Dragon Scale", Mobs = {"Dragon Crew Archer", "Dragon Crew Warrior"} },
+        { Name = "Gunpowder", Mobs = {"Pistol Billionaire"} },
+        { Name = "Demonic Soul", Mobs = {"Demonic Soul", "Posessed Mummy"} },
+        { Name = "Bones", Mobs = {"Reborn Skeleton", "Living Zombie", "Demonic Soul", "Posessed Mummy"} }
+    }
+}
+
+-- Detect Current Sea
+local function GetCurrentSea()
+    local placeId = game.PlaceId
+    if placeId == 2753915549 then
+        return "Sea 1"
+    elseif placeId == 4442272183 then
+        return "Sea 2"
+    elseif placeId == 7449423635 then
+        return "Sea 3"
+    end
+    return "Sea 3" -- Default fallback
+end
+
+local currentSea = GetCurrentSea()
+local availableMaterials = MaterialData[currentSea] or MaterialData["Sea 3"]
+
+local AutoFarmMaterialSettings = {
+    Enabled = false,
+    FlySpeed = 220,
+    SelectedMaterialIndex = 1
 }
 
 local MiscSettings = {
@@ -504,6 +601,85 @@ local function findClosestTargetMob()
     return bestTarget
 end
 
+local function findNearestHauntedNPC()
+    local bestTarget = nil
+    local shortestDist = math.huge
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidMob(mob) and table.find(AutoFarmHauntedSettings.TargetNames, mob.Name) then
+                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                if mobRoot then
+                    local dist = (mobRoot.Position - root.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        bestTarget = mobRoot
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget
+end
+
+-- Enhanced target finder with hardcoded fallback position for unloaded islands
+local function findNearestMaterialNPC()
+    local bestTargetPos = nil
+    local shortestDist = math.huge
+    local char = localPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local matInfo = availableMaterials[AutoFarmMaterialSettings.SelectedMaterialIndex]
+    if not matInfo or not matInfo.Mobs then return nil end
+
+    -- 1. Check loaded mobs in workspace
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if isValidMob(mob) then
+                local match = false
+                for _, mobName in ipairs(matInfo.Mobs) do
+                    if mob.Name:lower():find(mobName:lower()) then
+                        match = true
+                        break
+                    end
+                end
+
+                if match then
+                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                    if mobRoot then
+                        local dist = (mobRoot.Position - root.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            bestTargetPos = mobRoot.Position
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 2. Fallback to hardcoded coordinates if mob is on another island and not spawned yet
+    if not bestTargetPos then
+        for _, mobName in ipairs(matInfo.Mobs) do
+            for key, spawnPos in pairs(MobSpawnLocations) do
+                if key:lower() == mobName:lower() then
+                    bestTargetPos = spawnPos
+                    break
+                end
+            end
+            if bestTargetPos then break end
+        end
+    end
+
+    return bestTargetPos
+end
+
 local function manageAutoFarmFlight()
     pcall(function()
         local char = localPlayer.Character
@@ -544,6 +720,129 @@ local function manageAutoFarmFlight()
                 else
                     bv.Velocity = Vector3.new(0, 0, 0)
                     bg.CFrame = CFrame.new(root.Position, targetRoot.Position)
+                end
+            else
+                bv.Velocity = Vector3.new(0, 0, 0)
+            end
+        else
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end)
+end
+
+local function manageHauntedFarmFlight()
+    pcall(function()
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not root or not hum or hum.Health <= 0 then return end
+
+        local bv = root:FindFirstChild("HauntedFlyBV")
+        local bg = root:FindFirstChild("HauntedFlyBG")
+
+        if AutoFarmHauntedSettings.Enabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "HauntedFlyBV"
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Velocity = Vector3.new(0, 0, 0)
+                bv.Parent = root
+            end
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "HauntedFlyBG"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.CFrame = root.CFrame
+                bg.Parent = root
+            end
+
+            local targetRoot = findNearestHauntedNPC()
+            if targetRoot and targetRoot.Parent then
+                local hoverPos = targetRoot.Position + Vector3.new(0, 10, 0)
+                local direction = (hoverPos - root.Position)
+                if direction.Magnitude > 5 then
+                    bv.Velocity = direction.Unit * AutoFarmHauntedSettings.FlySpeed
+                    bg.CFrame = CFrame.new(root.Position, targetRoot.Position)
+                else
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                    bg.CFrame = CFrame.new(root.Position, targetRoot.Position)
+                end
+            else
+                local baseDir = (AutoFarmHauntedSettings.BasePosition - root.Position)
+                if baseDir.Magnitude > 15 then
+                    bv.Velocity = baseDir.Unit * AutoFarmHauntedSettings.FlySpeed
+                    bg.CFrame = CFrame.new(root.Position, AutoFarmHauntedSettings.BasePosition)
+                else
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
+        else
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end)
+end
+
+-- Long-distance island travel with position fallback
+local function manageMaterialFarmFlight()
+    pcall(function()
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not root or not hum or hum.Health <= 0 then return end
+
+        local bv = root:FindFirstChild("MaterialFlyBV")
+        local bg = root:FindFirstChild("MaterialFlyBG")
+
+        if AutoFarmMaterialSettings.Enabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "MaterialFlyBV"
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Velocity = Vector3.new(0, 0, 0)
+                bv.Parent = root
+            end
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "MaterialFlyBG"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.CFrame = root.CFrame
+                bg.Parent = root
+            end
+
+            local targetPos = findNearestMaterialNPC()
+            if targetPos then
+                local hoverPos = targetPos + Vector3.new(0, 10, 0)
+                local direction = hoverPos - root.Position
+                local distance = direction.Magnitude
+
+                if distance > 200 then
+                    -- Island flight mode
+                    bv.Velocity = direction.Unit * AutoFarmMaterialSettings.FlySpeed
+                    bg.CFrame = CFrame.new(root.Position, targetPos)
+                elseif distance > 6 then
+                    -- Close approach mode
+                    bv.Velocity = direction.Unit * (AutoFarmMaterialSettings.FlySpeed * 0.6)
+                    bg.CFrame = CFrame.new(root.Position, targetPos)
+                else
+                    -- Hover over mob
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                    bg.CFrame = CFrame.new(root.Position, targetPos)
                 end
             else
                 bv.Velocity = Vector3.new(0, 0, 0)
@@ -927,7 +1226,7 @@ local function createContentScrollingFrame(canvasHeight)
 end
 
 -- Frames categorized by modes
-local FarmTab = createContentScrollingFrame(300)
+local FarmTab = createContentScrollingFrame(400)
 local RaidTab = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
 
@@ -936,7 +1235,6 @@ local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
 
--- We will dynamically populate tabs depending on the active mode
 local currentTabs = {}
 
 local function clearTabs()
@@ -998,7 +1296,6 @@ end
 -- Initialize with PvP Mode by default
 loadPvPModeTabs()
 
--- farmUnlocked starts as false every single execution (every time they rejoin)
 local farmUnlocked = false
 
 BtnPvPMode.MouseButton1Click:Connect(function()
@@ -1041,6 +1338,79 @@ SubmitPasswordBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+----------------------------------------------------
+-- MATERIAL SELECTION MINI-UI WITH SEARCH & SCROLL
+----------------------------------------------------
+local MaterialModal = Instance.new("Frame")
+MaterialModal.Name = "MaterialSelectionModal"
+MaterialModal.Size = UDim2.new(0, 280, 0, 320)
+MaterialModal.Position = UDim2.new(0.5, -140, 0.5, -160)
+MaterialModal.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+MaterialModal.BorderSizePixel = 0
+MaterialModal.ZIndex = 50
+MaterialModal.Visible = false
+MaterialModal.Active = true
+MaterialModal.Draggable = true
+MaterialModal.Parent = ScreenGui
+Instance.new("UICorner", MaterialModal).CornerRadius = UDim.new(0, 8)
+
+local ModalTitle = Instance.new("TextLabel")
+ModalTitle.Size = UDim2.new(1, -30, 0, 35)
+ModalTitle.Position = UDim2.new(0, 10, 0, 0)
+ModalTitle.BackgroundTransparency = 1
+ModalTitle.Font = Enum.Font.SourceSansBold
+ModalTitle.TextSize = 15
+ModalTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ModalTitle.TextXAlignment = Enum.TextXAlignment.Left
+ModalTitle.Text = "Select Material to Farm"
+ModalTitle.ZIndex = 51
+ModalTitle.Parent = MaterialModal
+
+local CloseModalBtn = Instance.new("TextButton")
+CloseModalBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseModalBtn.Position = UDim2.new(1, -28, 0, 5)
+CloseModalBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+CloseModalBtn.Font = Enum.Font.SourceSansBold
+CloseModalBtn.TextSize = 13
+CloseModalBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseModalBtn.Text = "X"
+CloseModalBtn.ZIndex = 51
+CloseModalBtn.Parent = MaterialModal
+Instance.new("UICorner", CloseModalBtn).CornerRadius = UDim.new(0, 4)
+
+CloseModalBtn.MouseButton1Click:Connect(function()
+    MaterialModal.Visible = false
+end)
+
+local ModalSearchBar = Instance.new("TextBox")
+ModalSearchBar.Size = UDim2.new(1, -20, 0, 30)
+ModalSearchBar.Position = UDim2.new(0, 10, 0, 40)
+ModalSearchBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+ModalSearchBar.Font = Enum.Font.SourceSans
+ModalSearchBar.TextSize = 13
+ModalSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+ModalSearchBar.PlaceholderText = "Search material..."
+ModalSearchBar.Text = ""
+ModalSearchBar.ZIndex = 51
+ModalSearchBar.Parent = MaterialModal
+Instance.new("UICorner", ModalSearchBar).CornerRadius = UDim.new(0, 6)
+
+local ModalScrollFrame = Instance.new("ScrollingFrame")
+ModalScrollFrame.Size = UDim2.new(1, -20, 0, 230)
+ModalScrollFrame.Position = UDim2.new(0, 10, 0, 78)
+ModalScrollFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+ModalScrollFrame.BorderSizePixel = 0
+ModalScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ModalScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ModalScrollFrame.ScrollBarThickness = 5
+ModalScrollFrame.ZIndex = 51
+ModalScrollFrame.Parent = MaterialModal
+Instance.new("UICorner", ModalScrollFrame).CornerRadius = UDim.new(0, 6)
+
+local ModalListLayout = Instance.new("UIListLayout")
+ModalListLayout.Padding = UDim.new(0, 4)
+ModalListLayout.Parent = ModalScrollFrame
+
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
@@ -1072,6 +1442,76 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
 
     return Button
+end
+
+local function createMaterialSelectorRow(parentFrame, yPos)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -10, 0, 34)
+    Row.Position = UDim2.new(0, 5, 0, yPos)
+    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.Parent = parentFrame
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.4, 0, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 13
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = "Select Material (" .. currentSea .. "):"
+    Label.Parent = Row
+
+    local SelectButton = Instance.new("TextButton")
+    SelectButton.Size = UDim2.new(0, 180, 0, 26)
+    SelectButton.Position = UDim2.new(1, -185, 0.5, -13)
+    SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SelectButton.Font = Enum.Font.SourceSansBold
+    SelectButton.TextSize = 12
+    SelectButton.Text = availableMaterials[1] and availableMaterials[1].Name or "None"
+    SelectButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    SelectButton.Parent = Row
+    Instance.new("UICorner", SelectButton).CornerRadius = UDim.new(0, 4)
+
+    local function populateMaterialList(filter)
+        for _, child in ipairs(ModalScrollFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+
+        for idx, matData in ipairs(availableMaterials) do
+            if filter == "" or matData.Name:lower():find(filter:lower()) then
+                local itemBtn = Instance.new("TextButton")
+                itemBtn.Size = UDim2.new(1, -8, 0, 30)
+                itemBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                itemBtn.Font = Enum.Font.SourceSansBold
+                itemBtn.TextSize = 13
+                itemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                itemBtn.Text = matData.Name
+                itemBtn.ZIndex = 52
+                itemBtn.Parent = ModalScrollFrame
+                Instance.new("UICorner", itemBtn).CornerRadius = UDim.new(0, 4)
+
+                itemBtn.MouseButton1Click:Connect(function()
+                    AutoFarmMaterialSettings.SelectedMaterialIndex = idx
+                    SelectButton.Text = matData.Name
+                    MaterialModal.Visible = false
+                end)
+            end
+        end
+    end
+
+    ModalSearchBar:GetPropertyChangedSignal("Text"):Connect(function()
+        populateMaterialList(ModalSearchBar.Text)
+    end)
+
+    SelectButton.MouseButton1Click:Connect(function()
+        ModalSearchBar.Text = ""
+        populateMaterialList("")
+        MaterialModal.Visible = not MaterialModal.Visible
+    end)
 end
 
 local function createSliderRow(parentFrame, name, minVal, maxVal, currentVal, yPos, callback)
@@ -1249,6 +1689,11 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
 end
 
 local btnAutoFarmMastery = createToggleRow(FarmTab, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
+local btnAutoFarmHaunted = createToggleRow(FarmTab, "Auto Farm Money (Haunted Castle)", AutoFarmHauntedSettings.Enabled, 45)
+
+createMaterialSelectorRow(FarmTab, 85)
+local btnAutoFarmMaterial = createToggleRow(FarmTab, "Auto Farm Materials", AutoFarmMaterialSettings.Enabled, 125)
+
 local btnAutoRaid = createToggleRow(RaidTab, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 btnAutoFarmMastery.MouseButton1Click:Connect(function()
@@ -1261,6 +1706,44 @@ btnAutoFarmMastery.MouseButton1Click:Connect(function()
         if root then
             if root:FindFirstChild("AutoFarmFlyBV") then root.AutoFarmFlyBV:Destroy() end
             if root:FindFirstChild("AutoFarmFlyBG") then root.AutoFarmFlyBG:Destroy() end
+        end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end
+end)
+
+btnAutoFarmHaunted.MouseButton1Click:Connect(function()
+    AutoFarmHauntedSettings.Enabled = not AutoFarmHauntedSettings.Enabled
+    btnAutoFarmHaunted.Text = AutoFarmHauntedSettings.Enabled and "ON" or "OFF"
+    btnAutoFarmHaunted.TextColor3 = AutoFarmHauntedSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not AutoFarmHauntedSettings.Enabled then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if root:FindFirstChild("HauntedFlyBV") then root.HauntedFlyBV:Destroy() end
+            if root:FindFirstChild("HauntedFlyBG") then root.HauntedFlyBG:Destroy() end
+        end
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end
+end)
+
+btnAutoFarmMaterial.MouseButton1Click:Connect(function()
+    AutoFarmMaterialSettings.Enabled = not AutoFarmMaterialSettings.Enabled
+    btnAutoFarmMaterial.Text = AutoFarmMaterialSettings.Enabled and "ON" or "OFF"
+    btnAutoFarmMaterial.TextColor3 = AutoFarmMaterialSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    if not AutoFarmMaterialSettings.Enabled then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if root:FindFirstChild("MaterialFlyBV") then root.MaterialFlyBV:Destroy() end
+            if root:FindFirstChild("MaterialFlyBG") then root.MaterialFlyBG:Destroy() end
         end
         if char then
             for _, part in ipairs(char:GetDescendants()) do
@@ -1477,7 +1960,7 @@ end
 task.spawn(function()
     while true do
         pcall(function()
-            if FastAttackSettings.AutoClick then
+            if FastAttackSettings.AutoClick or AutoFarmMasterySettings.Enabled or AutoFarmHauntedSettings.Enabled or AutoFarmMaterialSettings.Enabled then
                 local char = localPlayer.Character
                 if char and char:FindFirstChildOfClass("Tool") then
                     local myRoot = char:FindFirstChild("HumanoidRootPart")
@@ -1622,6 +2105,14 @@ RunService.RenderStepped:Connect(function()
 
         if AutoFarmMasterySettings.Enabled then
             manageAutoFarmFlight()
+        end
+
+        if AutoFarmHauntedSettings.Enabled then
+            manageHauntedFarmFlight()
+        end
+
+        if AutoFarmMaterialSettings.Enabled then
+            manageMaterialFarmFlight()
         end
 
         if MiscSettings.AntiBountyLose then
