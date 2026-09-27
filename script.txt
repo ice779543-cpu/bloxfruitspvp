@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = true
+local PUBLIC_ACCESS = false
 
 -- Access verification check
 local players = game:GetService("Players")
@@ -822,6 +822,86 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
 
+-- Mode Selection Top Bar (Farm Mode vs PvP Mode)
+local ModeBar = Instance.new("Frame")
+ModeBar.Size = UDim2.new(0, 240, 0, 30)
+ModeBar.Position = UDim2.new(1, -250, 0, 7)
+ModeBar.BackgroundTransparency = 1
+ModeBar.Parent = MainFrame
+
+local BtnPvPMode = Instance.new("TextButton")
+BtnPvPMode.Size = UDim2.new(0.48, 0, 1, 0)
+BtnPvPMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+BtnPvPMode.Font = Enum.Font.SourceSansBold
+BtnPvPMode.TextSize = 12
+BtnPvPMode.TextColor3 = Color3.fromRGB(20, 20, 25)
+BtnPvPMode.Text = "PvP Mode"
+BtnPvPMode.Parent = ModeBar
+Instance.new("UICorner", BtnPvPMode).CornerRadius = UDim.new(0, 6)
+
+local BtnFarmMode = Instance.new("TextButton")
+BtnFarmMode.Size = UDim2.new(0.48, 0, 1, 0)
+BtnFarmMode.Position = UDim2.new(0.52, 0, 0, 0)
+BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+BtnFarmMode.Font = Enum.Font.SourceSansBold
+BtnFarmMode.TextSize = 12
+BtnFarmMode.TextColor3 = Color3.fromRGB(200, 200, 200)
+BtnFarmMode.Text = "Farm Mode"
+BtnFarmMode.Parent = ModeBar
+Instance.new("UICorner", BtnFarmMode).CornerRadius = UDim.new(0, 6)
+
+-- Password Overlay Frame for Farm Mode
+local PasswordOverlay = Instance.new("Frame")
+PasswordOverlay.Size = UDim2.new(1, 0, 1, -45)
+PasswordOverlay.Position = UDim2.new(0, 0, 0, 45)
+PasswordOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+PasswordOverlay.Visible = false
+PasswordOverlay.ZIndex = 10
+PasswordOverlay.Parent = MainFrame
+
+local PasswordBoxContainer = Instance.new("Frame")
+PasswordBoxContainer.Size = UDim2.new(0, 280, 0, 150)
+PasswordBoxContainer.Position = UDim2.new(0.5, -140, 0.5, -75)
+PasswordBoxContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+PasswordBoxContainer.ZIndex = 11
+PasswordBoxContainer.Parent = PasswordOverlay
+Instance.new("UICorner", PasswordBoxContainer).CornerRadius = UDim.new(0, 8)
+
+local PasswordTitle = Instance.new("TextLabel")
+PasswordTitle.Size = UDim2.new(1, 0, 0, 40)
+PasswordTitle.BackgroundTransparency = 1
+PasswordTitle.Font = Enum.Font.SourceSansBold
+PasswordTitle.TextSize = 15
+PasswordTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+PasswordTitle.Text = "Enter Password for Farm Mode"
+PasswordTitle.ZIndex = 12
+PasswordTitle.Parent = PasswordBoxContainer
+
+local PasswordInput = Instance.new("TextBox")
+PasswordInput.Size = UDim2.new(0.8, 0, 0, 35)
+PasswordInput.Position = UDim2.new(0.1, 0, 0, 50)
+PasswordInput.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+PasswordInput.Font = Enum.Font.SourceSansBold
+PasswordInput.TextSize = 14
+PasswordInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+PasswordInput.PlaceholderText = "Enter password..."
+PasswordInput.Text = ""
+PasswordInput.ZIndex = 12
+PasswordInput.Parent = PasswordBoxContainer
+Instance.new("UICorner", PasswordInput).CornerRadius = UDim.new(0, 6)
+
+local SubmitPasswordBtn = Instance.new("TextButton")
+SubmitPasswordBtn.Size = UDim2.new(0.8, 0, 0, 32)
+SubmitPasswordBtn.Position = UDim2.new(0.1, 0, 0, 95)
+SubmitPasswordBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+SubmitPasswordBtn.Font = Enum.Font.SourceSansBold
+SubmitPasswordBtn.TextSize = 13
+SubmitPasswordBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+SubmitPasswordBtn.Text = "Unlock"
+SubmitPasswordBtn.ZIndex = 12
+SubmitPasswordBtn.Parent = PasswordBoxContainer
+Instance.new("UICorner", SubmitPasswordBtn).CornerRadius = UDim.new(0, 6)
+
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0, 130, 1, -55)
 TabContainer.Position = UDim2.new(0, 0, 0, 50)
@@ -846,12 +926,36 @@ local function createContentScrollingFrame(canvasHeight)
     return sf
 end
 
-local FarmRaidFrame = createContentScrollingFrame(300)
+-- Frames categorized by modes
+local FarmTab = createContentScrollingFrame(300)
+local RaidTab = createContentScrollingFrame(300)
+local FruitFrame = createContentScrollingFrame(300)
+
 local PvPFrame = createContentScrollingFrame(620)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
-local FruitFrame = createContentScrollingFrame(300)
 local NpcFrame = createContentScrollingFrame(450)
+
+-- We will dynamically populate tabs depending on the active mode
+local currentTabs = {}
+
+local function clearTabs()
+    for _, btn in ipairs(TabContainer:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn:Destroy()
+        end
+    end
+end
+
+local function hideAllFrames()
+    FarmTab.Visible = false
+    RaidTab.Visible = false
+    FruitFrame.Visible = false
+    PvPFrame.Visible = false
+    MacroFrame.Visible = false
+    MiscFrame.Visible = false
+    NpcFrame.Visible = false
+end
 
 local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
@@ -866,25 +970,75 @@ local function createTabButton(name, yPos, targetFrame)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     
     btn.MouseButton1Click:Connect(function()
-        FarmRaidFrame.Visible = false
-        PvPFrame.Visible = false
-        MacroFrame.Visible = false
-        MiscFrame.Visible = false
-        FruitFrame.Visible = false
-        NpcFrame.Visible = false
+        hideAllFrames()
         targetFrame.Visible = true
     end)
     return btn
 end
 
-createTabButton("Farm/Raid", 8, FarmRaidFrame)
-createTabButton("PvP", 48, PvPFrame)
-createTabButton("Macro", 88, MacroFrame)
-createTabButton("Misc", 128, MiscFrame)
-createTabButton("Fruit Notifier", 168, FruitFrame)
-createTabButton("NPC", 208, NpcFrame)
+local function loadPvPModeTabs()
+    clearTabs()
+    hideAllFrames()
+    createTabButton("PvP", 8, PvPFrame)
+    createTabButton("Macro", 48, MacroFrame)
+    createTabButton("Misc", 88, MiscFrame)
+    createTabButton("NPC", 128, NpcFrame)
+    PvPFrame.Visible = true
+end
 
-FarmRaidFrame.Visible = true
+local function loadFarmModeTabs()
+    clearTabs()
+    hideAllFrames()
+    createTabButton("Farm", 8, FarmTab)
+    createTabButton("Raid", 48, RaidTab)
+    createTabButton("Fruit Notifier", 88, FruitFrame)
+    FarmTab.Visible = true
+end
+
+-- Initialize with PvP Mode by default
+loadPvPModeTabs()
+
+local farmUnlocked = false
+
+BtnPvPMode.MouseButton1Click:Connect(function()
+    BtnPvPMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+    BtnPvPMode.TextColor3 = Color3.fromRGB(20, 20, 25)
+    BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    BtnFarmMode.TextColor3 = Color3.fromRGB(200, 200, 200)
+    PasswordOverlay.Visible = false
+    loadPvPModeTabs()
+end)
+
+BtnFarmMode.MouseButton1Click:Connect(function()
+    if farmUnlocked then
+        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 20, 25)
+        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        BtnPvPMode.TextColor3 = Color3.fromRGB(200, 200, 200)
+        PasswordOverlay.Visible = false
+        loadFarmModeTabs()
+    else
+        PasswordInput.Text = ""
+        PasswordOverlay.Visible = true
+    end
+end)
+
+SubmitPasswordBtn.MouseButton1Click:Connect(function()
+    if PasswordInput.Text == "605158" then
+        farmUnlocked = true
+        PasswordOverlay.Visible = false
+        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 20, 25)
+        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        BtnPvPMode.TextColor3 = Color3.fromRGB(200, 200, 200)
+        loadFarmModeTabs()
+    else
+        PasswordInput.Text = ""
+        PasswordInput.PlaceholderText = "Wrong Password!"
+        task.wait(1)
+        PasswordInput.PlaceholderText = "Enter password..."
+    end
+end)
 
 local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
@@ -1093,8 +1247,8 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     end)
 end
 
-local btnAutoFarmMastery = createToggleRow(FarmRaidFrame, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
-local btnAutoRaid = createToggleRow(FarmRaidFrame, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 45)
+local btnAutoFarmMastery = createToggleRow(FarmTab, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
+local btnAutoRaid = createToggleRow(RaidTab, "Auto Raid (Do Only)", AutoRaidSettings.Enabled, 5)
 
 btnAutoFarmMastery.MouseButton1Click:Connect(function()
     AutoFarmMasterySettings.Enabled = not AutoFarmMasterySettings.Enabled
