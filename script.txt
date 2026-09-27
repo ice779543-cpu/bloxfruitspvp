@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = true
+local PUBLIC_ACCESS = false
 
 -- Access verification check
 local players = game:GetService("Players")
@@ -795,7 +795,7 @@ local OpenButton = Instance.new("ImageButton")
 OpenButton.Size = UDim2.new(0, 45, 0, 45)
 OpenButton.Position = UDim2.new(0, 20, 0, 100)
 OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-OpenButton.Image = "rbxassetid://10511856020"
+OpenButton.Image = "rbxassetid://79622895729382"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 8)
@@ -998,6 +998,7 @@ end
 -- Initialize with PvP Mode by default
 loadPvPModeTabs()
 
+-- farmUnlocked starts as false every single execution (every time they rejoin)
 local farmUnlocked = false
 
 BtnPvPMode.MouseButton1Click:Connect(function()
