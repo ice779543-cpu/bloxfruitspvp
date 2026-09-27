@@ -15,9 +15,10 @@ local localPlayer = Players.LocalPlayer
 local OWNER_NAME = "Kjdaking918"
 local whitelistFileName = "BloxFruitHub_PersistentWhitelist.json"
 
--- Default Whitelist Table
+-- Default Whitelist Table (denistvcrobi added permanently here)
 local whitelistedUsers = {
-    [OWNER_NAME] = true
+    [OWNER_NAME] = true,
+    ["denistvcrobi"] = true
 }
 
 -- Load persistent whitelist from file if it exists
@@ -45,6 +46,7 @@ local function savePersistentWhitelist()
         end
     end)
 end
+savePersistentWhitelist() -- Ensures denistvcrobi is immediately committed to the file
 
 -- Check if the executor is authorized
 if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] then
@@ -109,55 +111,6 @@ pcall(function()
 end)
 
 task.wait(0.1)
-
--- 5-Second Success Notification Popup Generator
-task.spawn(function()
-    pcall(function()
-        local PopGui = Instance.new("ScreenGui")
-        PopGui.Name = "SuccessPopupGui"
-        PopGui.ResetOnSpawn = false
-        PopGui.Parent = CoreGui
-
-        local NotifFrame = Instance.new("Frame")
-        NotifFrame.Size = UDim2.new(0, 300, 0, 50)
-        NotifFrame.Position = UDim2.new(0.5, -150, 0, -60) -- Starts hidden off-screen
-        NotifFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-        NotifFrame.BorderSizePixel = 0
-        NotifFrame.Parent = PopGui
-        Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 8)
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Color = Color3.fromRGB(0, 255, 128)
-        Stroke.Thickness = 2
-        Stroke.Parent = NotifFrame
-
-        local NotifText = Instance.new("TextLabel")
-        NotifText.Size = UDim2.new(1, 0, 1, 0)
-        NotifText.BackgroundTransparency = 1
-        NotifText.Font = Enum.Font.SourceSansBold
-        NotifText.TextSize = 15
-        NotifText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        NotifText.Text = "✅ Blox Fruits Hub Loaded Successfully!"
-        NotifText.Parent = NotifFrame
-
-        -- Slide down animation
-        TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0.5, -150, 0, 20)
-        }):Play()
-
-        -- Wait for 5 seconds
-        task.wait(5)
-
-        -- Slide up and remove animation
-        local fadeOut = TweenService:Create(NotifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, -150, 0, -60)
-        })
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            PopGui:Destroy()
-        end)
-    end)
-end)
 
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
