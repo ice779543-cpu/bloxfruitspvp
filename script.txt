@@ -6,8 +6,62 @@ local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local TextChatService = game:GetService("TextChatService")
 
 local localPlayer = Players.LocalPlayer
+
+-- Whitelist and Security Configuration
+local OWNER_NAME = "Kjdaking918"
+local whitelistedUsers = {
+    [OWNER_NAME] = true
+}
+
+-- Check if the executor is authorized
+if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] then
+    return -- Loads absolutely nothing if unauthorized
+end
+
+-- Chat command listener for the owner to whitelist others dynamically
+local function setupChatListener()
+    pcall(function()
+        if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            TextChatService.MessageReceived:Connect(function(textChatMessage)
+                if localPlayer.Name == OWNER_NAME and textChatMessage.TextSource then
+                    local speaker = Players:GetPlayerByUserId(textChatMessage.TextSource.UserId)
+                    if speaker == localPlayer then
+                        local msg = textChatMessage.Text
+                        if msg:sub(1, 11) == "/whitelist " then
+                            local targetName = msg:sub(12)
+                            targetName = targetName:gsub("^%s+", ""):gsub("%s+$", "") -- Trim spaces
+                            if targetName ~= "" then
+                                whitelistedUsers[targetName] = true
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            localPlayer.Chatted:Connect(function(msg)
+                if localPlayer.Name == OWNER_NAME then
+                    if msg:sub(1, 11) == "/whitelist " then
+                        local targetName = msg:sub(12)
+                        targetName = targetName:gsub("^%s+", ""):gsub("%s+$", "")
+                        if targetName ~= "" then
+                            whitelistedUsers[targetName] = true
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+setupChatListener()
+
+-- Double check before proceeding with script initialization
+if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] then
+    return
+end
+
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Name or "Player") .. ".json"
 
@@ -49,7 +103,7 @@ local MiscSettings = {
     AutoV4 = false,
     AutoAura = false,
     WalkOnWater = false,
-    AntiAlly = true,
+    AntiAlly = false, -- Disabled so crew members are not skipped for PvP[cite: 2]
     AntiBountyLose = false,
     AntiBountyDistance = 150,
     AntiBountyFlySpeed = 250
@@ -657,7 +711,6 @@ local function manageAntiBountyFlight()
                 bg.Parent = root
             end
 
-            -- Fly straight up infinitely until toggled off
             local upVelocity = Vector3.new(0, MiscSettings.AntiBountyFlySpeed, 0)
             bv.Velocity = upVelocity
             bg.CFrame = CFrame.new(root.Position, root.Position + Vector3.new(0, 1, 0))
@@ -1309,7 +1362,6 @@ task.spawn(function()
                     if myRoot then
                         local targetsList = {}
                         
-                        -- 1. Target NPCs (Enemies folder)
                         local enemiesFolder = Workspace:FindFirstChild("Enemies")
                         if enemiesFolder then
                             for _, mob in pairs(enemiesFolder:GetChildren()) do
@@ -1324,7 +1376,6 @@ task.spawn(function()
                             end
                         end
 
-                        -- 2. Target Players (PvP)
                         for _, plr in ipairs(Players:GetPlayers()) do
                             if plr ~= localPlayer and not isAlly(plr) and plr.Character then
                                 local pChar = plr.Character
@@ -1618,7 +1669,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 CamStates.NpcCamActive = false
                 CamStates.LockedNpcTarget = nil
             else
-                val = findAimedNpcTarget()
+                local val = findAimedNpcTarget()
                 if val then
                     CamStates.NpcCamActive = true
                     CamStates.LockedNpcTarget = val
