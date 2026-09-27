@@ -7,24 +7,53 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TextChatService = game:GetService("TextChatService")
+local TweenService = game:GetService("TweenService")
 
 local localPlayer = Players.LocalPlayer
 
 -- Whitelist and Security Configuration
 local OWNER_NAME = "Kjdaking918"
+local whitelistFileName = "BloxFruitHub_PersistentWhitelist.json"
+
+-- Default Whitelist Table
 local whitelistedUsers = {
     [OWNER_NAME] = true
 }
+
+-- Load persistent whitelist from file if it exists
+local function loadPersistentWhitelist()
+    pcall(function()
+        if readfile and isfile and isfile(whitelistFileName) then
+            local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(whitelistFileName)) end)
+            if success and type(decoded) == "table" then
+                for username, isAllowed in pairs(decoded) do
+                    if isAllowed then
+                        whitelistedUsers[username] = true
+                    end
+                end
+            end
+        end
+    end)
+end
+loadPersistentWhitelist()
+
+-- Save persistent whitelist to file
+local function savePersistentWhitelist()
+    pcall(function()
+        if writefile and HttpService then
+            writefile(whitelistFileName, HttpService:JSONEncode(whitelistedUsers))
+        end
+    end)
+end
 
 -- Check if the executor is authorized
 if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] then
     return -- Loads absolutely nothing if unauthorized
 end
 
--- Robust chat command listener for the owner to whitelist others
+-- Robust chat command listener for the owner to whitelist others permanently
 local function setupChatListener()
     pcall(function()
-        -- Modern TextChatService Listener
         if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
             task.spawn(function()
                 repeat task.wait(1) until TextChatService:FindFirstChild("TextChannels")
@@ -38,6 +67,7 @@ local function setupChatListener()
                                         local targetName = msg:sub(12):gsub("^%s+", ""):gsub("%s+$", "")
                                         if targetName ~= "" then
                                             whitelistedUsers[targetName] = true
+                                            savePersistentWhitelist()
                                         end
                                     end
                                 end
@@ -48,13 +78,13 @@ local function setupChatListener()
             end)
         end
         
-        -- Legacy / Fallback Chat Listener
         localPlayer.Chatted:Connect(function(msg)
             if localPlayer.Name == OWNER_NAME then
                 if msg:sub(1, 11) == "/whitelist " then
                     local targetName = msg:sub(12):gsub("^%s+", ""):gsub("%s+$", "")
                     if targetName ~= "" then
                         whitelistedUsers[targetName] = true
+                        savePersistentWhitelist()
                     end
                 end
             end
@@ -63,7 +93,6 @@ local function setupChatListener()
 end
 setupChatListener()
 
--- Double check before proceeding with script initialization
 if localPlayer.Name ~= OWNER_NAME and not whitelistedUsers[localPlayer.Name] then
     return
 end
@@ -73,13 +102,62 @@ local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Nam
 
 pcall(function()
     for _, obj in ipairs(CoreGui:GetChildren()) do
-        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") or obj.Name:find("NPCHitboxGUI") then
+        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") or obj.Name:find("NPCHitboxGUI") or obj.Name:find("SuccessPopupGui") then
             obj:Destroy()
         end
     end
 end)
 
 task.wait(0.1)
+
+-- 5-Second Success Notification Popup Generator
+task.spawn(function()
+    pcall(function()
+        local PopGui = Instance.new("ScreenGui")
+        PopGui.Name = "SuccessPopupGui"
+        PopGui.ResetOnSpawn = false
+        PopGui.Parent = CoreGui
+
+        local NotifFrame = Instance.new("Frame")
+        NotifFrame.Size = UDim2.new(0, 300, 0, 50)
+        NotifFrame.Position = UDim2.new(0.5, -150, 0, -60) -- Starts hidden off-screen
+        NotifFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+        NotifFrame.BorderSizePixel = 0
+        NotifFrame.Parent = PopGui
+        Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 8)
+
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Color = Color3.fromRGB(0, 255, 128)
+        Stroke.Thickness = 2
+        Stroke.Parent = NotifFrame
+
+        local NotifText = Instance.new("TextLabel")
+        NotifText.Size = UDim2.new(1, 0, 1, 0)
+        NotifText.BackgroundTransparency = 1
+        NotifText.Font = Enum.Font.SourceSansBold
+        NotifText.TextSize = 15
+        NotifText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        NotifText.Text = "✅ Blox Fruits Hub Loaded Successfully!"
+        NotifText.Parent = NotifFrame
+
+        -- Slide down animation
+        TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -150, 0, 20)
+        }):Play()
+
+        -- Wait for 5 seconds
+        task.wait(5)
+
+        -- Slide up and remove animation
+        local fadeOut = TweenService:Create(NotifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -150, 0, -60)
+        })
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            PopGui:Destroy()
+        end)
+    end)
+end)
 
 local Keybinds = {
     PlayerCam = Enum.KeyCode.P,
