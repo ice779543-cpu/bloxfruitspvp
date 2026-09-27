@@ -1,3 +1,23 @@
+-- ==========================================
+-- SCRIPT ACCESS CONFIGURATION
+-- true  = Everyone can use the script
+-- false = Only Kjdaking918 can use the script
+-- ==========================================
+local PUBLIC_ACCESS = false
+
+-- Access verification check
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+
+if not PUBLIC_ACCESS and localPlayer.Name ~= "Kjdaking918" then
+    -- Exits the script immediately so nothing loads for unauthorized users
+    return
+end
+
+-- ==========================================
+-- MAIN SCRIPT
+-- ==========================================
+
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -9,7 +29,6 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
-local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Name or "Player") .. ".json"
 
