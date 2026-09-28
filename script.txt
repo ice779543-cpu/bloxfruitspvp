@@ -175,6 +175,7 @@ local MiscSettings = {
 }
 
 local SavedMusicList = {
+    { Name = "idk", Id = "93162865190777" },
     { Name = "vem vem", Id = "119872638207767" },
     { Name = "teranova", Id = "82746224492420" },
     { Name = "meant to be", Id = "122655297602541" }
@@ -1714,7 +1715,7 @@ local activeSound = Instance.new("Sound")
 activeSound.Name = "HubMusicPlayer"
 activeSound.Volume = MusicSettings.Volume
 activeSound.Looped = MusicSettings.Looped
-activeSound.SoundId = "rbxassetid://119872638207767"
+activeSound.SoundId = "rbxassetid://93162865190777"
 activeSound.Parent = SoundService
 
 activeSound.Ended:Connect(function()
@@ -2551,14 +2552,13 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 local behindCFactor = closestRoot.CFrame * CFrame.new(0, 0, 4)
                 root.CFrame = CFrame.new(behindCFactor.Position, closestRoot.Position)
             end
-        elseif input.KeyCode == Keybinds.SuperJump and root then
-            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
-        elseif input.KeyCode == Keybinds.LongDash and root then
-            local moveDir = char and char:FindFirstChildOfClass("Humanoid") and char.Humanoid.MoveDirection or Vector3.new(0,0,0)
-            if moveDir.Magnitude > 0 then
-                root.AssemblyLinearVelocity = moveDir.Unit * 300
-            else
-                root.AssemblyLinearVelocity = root.CFrame.LookVector * 300
+        elseif input.KeyCode == Keybinds.SuperJump then
+            if root then
+                root.Velocity = Vector3.new(root.Velocity.X, 120, root.Velocity.Z)
+            end
+        elseif input.KeyCode == Keybinds.LongDash then
+            if root then
+                root.Velocity = root.CFrame.LookVector * 150
             end
         end
     end)
