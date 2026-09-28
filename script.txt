@@ -141,7 +141,7 @@ local MaterialData = {
     }
 }
 
--- Detect Current Sea
+-- Detect Current Sea by PlaceId or map objects
 local function GetCurrentSea()
     local placeId = game.PlaceId
     if placeId == 2753915549 then
@@ -151,6 +151,19 @@ local function GetCurrentSea()
     elseif placeId == 7449423635 then
         return "Sea 3"
     end
+
+    -- Fallback map detection for sub-places / private servers
+    if Workspace:FindFirstChild("Map") then
+        local map = Workspace.Map
+        if map:FindFirstChild("Sea3") or map:FindFirstChild("Mansion") or map:FindFirstChild("Castle On The Sea") or map:FindFirstChild("Chocolate Island") then
+            return "Sea 3"
+        elseif map:FindFirstChild("Sea2") or map:FindFirstChild("Cafe") or map:FindFirstChild("Factory") or map:FindFirstChild("Kingdom of Rose") then
+            return "Sea 2"
+        elseif map:FindFirstChild("Jungle") or map:FindFirstChild("Starter Island") or map:FindFirstChild("Marine Fortress") then
+            return "Sea 1"
+        end
+    end
+
     return "Sea 3" -- Default fallback
 end
 
@@ -2551,14 +2564,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
             if closestRoot and root then
                 local behindCFactor = closestRoot.CFrame * CFrame.new(0, 0, 4)
                 root.CFrame = CFrame.new(behindCFactor.Position, closestRoot.Position)
-            end
-        elseif input.KeyCode == Keybinds.SuperJump then
-            if root then
-                root.Velocity = Vector3.new(root.Velocity.X, 120, root.Velocity.Z)
-            end
-        elseif input.KeyCode == Keybinds.LongDash then
-            if root then
-                root.Velocity = root.CFrame.LookVector * 150
             end
         end
     end)
