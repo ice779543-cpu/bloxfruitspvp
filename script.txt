@@ -2548,4 +2548,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
         elseif input.KeyCode == Keybinds.LongDash and root then
             local lookVec = camera.CFrame.LookVector
-            root.AssemblyLinearVelocity = Vector
+            root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 300, root.AssemblyLinearVelocity.Y, lookVec.Z * 300)
+        end
+    end)
+end)
