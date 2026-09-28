@@ -141,7 +141,7 @@ local MaterialData = {
     }
 }
 
--- Detect Current Sea by PlaceId or map objects
+-- Enhanced Sea Detector
 local function GetCurrentSea()
     local placeId = game.PlaceId
     if placeId == 2753915549 then
@@ -152,19 +152,19 @@ local function GetCurrentSea()
         return "Sea 3"
     end
 
-    -- Fallback map detection for sub-places / private servers
-    if Workspace:FindFirstChild("Map") then
-        local map = Workspace.Map
-        if map:FindFirstChild("Sea3") or map:FindFirstChild("Mansion") or map:FindFirstChild("Castle On The Sea") or map:FindFirstChild("Chocolate Island") then
-            return "Sea 3"
-        elseif map:FindFirstChild("Sea2") or map:FindFirstChild("Cafe") or map:FindFirstChild("Factory") or map:FindFirstChild("Kingdom of Rose") then
-            return "Sea 2"
-        elseif map:FindFirstChild("Jungle") or map:FindFirstChild("Starter Island") or map:FindFirstChild("Marine Fortress") then
+    -- Fallback via Map check if PlaceId is a SubPlace/Private Server ID
+    local map = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("World")
+    if map then
+        if map:FindFirstChild("Jungle") or map:FindFirstChild("Pirate Starter") or map:FindFirstChild("Marine Starter") then
             return "Sea 1"
+        elseif map:FindFirstChild("Kingdom of Rose") or map:FindFirstChild("Green Zone") or map:FindFirstChild("Cafe") then
+            return "Sea 2"
+        elseif map:FindFirstChild("Port Town") or map:FindFirstChild("Floating Turtle") or map:FindFirstChild("Chocolate Island") then
+            return "Sea 3"
         end
     end
 
-    return "Sea 3" -- Default fallback
+    return "Sea 3"
 end
 
 local currentSea = GetCurrentSea()
@@ -652,7 +652,6 @@ local function findNearestHauntedNPC()
     return bestTarget
 end
 
--- Enhanced target finder with hardcoded fallback position for unloaded islands
 local function findNearestMaterialNPC()
     local bestTargetPos = nil
     local shortestDist = math.huge
@@ -820,7 +819,6 @@ local function manageHauntedFarmFlight()
     end)
 end
 
--- Long-distance island travel with position fallback
 local function manageMaterialFarmFlight()
     pcall(function()
         local char = localPlayer.Character
@@ -858,15 +856,12 @@ local function manageMaterialFarmFlight()
                 local distance = direction.Magnitude
 
                 if distance > 200 then
-                    -- Island flight mode
                     bv.Velocity = direction.Unit * AutoFarmMaterialSettings.FlySpeed
                     bg.CFrame = CFrame.new(root.Position, targetPos)
                 elseif distance > 6 then
-                    -- Close approach mode
                     bv.Velocity = direction.Unit * (AutoFarmMaterialSettings.FlySpeed * 0.6)
                     bg.CFrame = CFrame.new(root.Position, targetPos)
                 else
-                    -- Hover over mob
                     bv.Velocity = Vector3.new(0, 0, 0)
                     bg.CFrame = CFrame.new(root.Position, targetPos)
                 end
@@ -1151,7 +1146,6 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
 
--- Mode Selection Top Bar (Farm Mode vs PvP Mode)
 local ModeBar = Instance.new("Frame")
 ModeBar.Size = UDim2.new(0, 240, 0, 30)
 ModeBar.Position = UDim2.new(1, -250, 0, 7)
@@ -1179,7 +1173,6 @@ BtnFarmMode.Text = "Farm Mode"
 BtnFarmMode.Parent = ModeBar
 Instance.new("UICorner", BtnFarmMode).CornerRadius = UDim.new(0, 6)
 
--- Password Overlay Frame for Farm Mode
 local PasswordOverlay = Instance.new("Frame")
 PasswordOverlay.Size = UDim2.new(1, 0, 1, -45)
 PasswordOverlay.Position = UDim2.new(0, 0, 0, 45)
@@ -1255,7 +1248,6 @@ local function createContentScrollingFrame(canvasHeight)
     return sf
 end
 
--- Frames categorized by modes
 local FarmTab = createContentScrollingFrame(400)
 local RaidTab = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
@@ -1265,8 +1257,6 @@ local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
 local MusicFrame = createContentScrollingFrame(500)
-
-local currentTabs = {}
 
 local function clearTabs()
     for _, btn in ipairs(TabContainer:GetChildren()) do
@@ -1326,7 +1316,6 @@ local function loadFarmModeTabs()
     FarmTab.Visible = true
 end
 
--- Initialize with PvP Mode by default
 loadPvPModeTabs()
 
 local farmUnlocked = false
@@ -1485,8 +1474,11 @@ local function createMaterialSelectorRow(parentFrame, yPos)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
+    currentSea = GetCurrentSea()
+    availableMaterials = MaterialData[currentSea] or MaterialData["Sea 3"]
+
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.4, 0, 1, 0)
+    Label.Size = UDim2.new(0.45, 0, 1, 0)
     Label.Position = UDim2.new(0, 10, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
@@ -1497,8 +1489,8 @@ local function createMaterialSelectorRow(parentFrame, yPos)
     Label.Parent = Row
 
     local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0, 180, 0, 26)
-    SelectButton.Position = UDim2.new(1, -185, 0.5, -13)
+    SelectButton.Size = UDim2.new(0, 160, 0, 26)
+    SelectButton.Position = UDim2.new(1, -165, 0.5, -13)
     SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
     SelectButton.Font = Enum.Font.SourceSansBold
     SelectButton.TextSize = 12
@@ -1513,6 +1505,10 @@ local function createMaterialSelectorRow(parentFrame, yPos)
                 child:Destroy()
             end
         end
+
+        currentSea = GetCurrentSea()
+        availableMaterials = MaterialData[currentSea] or MaterialData["Sea 3"]
+        Label.Text = "Select Material (" .. currentSea .. "):"
 
         for idx, matData in ipairs(availableMaterials) do
             if filter == "" or matData.Name:lower():find(filter:lower()) then
@@ -1746,7 +1742,6 @@ local function playMusicId(id)
     end
 end
 
--- Music Controller Elements
 local MusicControlBox = Instance.new("Frame")
 MusicControlBox.Size = UDim2.new(1, -10, 0, 110)
 MusicControlBox.Position = UDim2.new(0, 5, 0, 5)
@@ -2562,8 +2557,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 end
             end
             if closestRoot and root then
-                local behindCFactor = closestRoot.CFrame * CFrame.new(0, 0, 4)
-                root.CFrame = CFrame.new(behindCFactor.Position, closestRoot.Position)
+                root.CFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
             end
         end
     end)
