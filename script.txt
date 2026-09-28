@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = true
+local PUBLIC_ACCESS = false
 
 -- Access verification check
 local players = game:GetService("Players")
@@ -175,7 +175,9 @@ local MiscSettings = {
 }
 
 local SavedMusicList = {
-    { Name = "Default Vibe", Id = "1837879082" }
+    { Name = "teranova", Id = "82746224492420" },
+    { Name = "meant to be", Id = "122655297602541" },
+    { Name = "dark age", Id = "116976635180369" }
 }
 
 local MusicSettings = {
@@ -2546,11 +2548,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
         elseif input.KeyCode == Keybinds.LongDash and root then
             local lookVec = camera.CFrame.LookVector
-            root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 350, 0, lookVec.Z * 350)
-        end
-    end)
-end)
-
-OpenButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
+            root.AssemblyLinearVelocity = Vector
