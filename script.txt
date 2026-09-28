@@ -55,6 +55,11 @@ local Keybinds = {
     MacroKey = Enum.KeyCode.V
 }
 
+local MovementPowerSettings = {
+    SuperJumpPower = 120,
+    LongDashPower = 150
+}
+
 local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
@@ -152,7 +157,6 @@ local function GetCurrentSea()
         return "Sea 3"
     end
 
-    -- Fallback via Map check if PlaceId is a SubPlace/Private Server ID
     local map = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("World")
     if map then
         if map:FindFirstChild("Jungle") or map:FindFirstChild("Pirate Starter") or map:FindFirstChild("Marine Starter") then
@@ -659,6 +663,10 @@ local function findNearestMaterialNPC()
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
+    -- Update sea and materials dynamically each lookup tick
+    currentSea = GetCurrentSea()
+    availableMaterials = MaterialData[currentSea] or MaterialData["Sea 3"]
+
     local matInfo = availableMaterials[AutoFarmMaterialSettings.SelectedMaterialIndex]
     if not matInfo or not matInfo.Mobs then return nil end
 
@@ -1048,6 +1056,7 @@ local function saveSettings()
         if writefile and HttpService then
             local encodedTable = {
                 Keybinds = {},
+                MovementPowerSettings = MovementPowerSettings,
                 MacroSelections = MacroSelections,
                 MacroDelays = MacroDelays,
                 MiscSettings = MiscSettings,
@@ -1071,6 +1080,11 @@ local function loadSettings()
                         if Keybinds[keyName] ~= nil and Enum.KeyCode[enumName] then 
                             Keybinds[keyName] = Enum.KeyCode[enumName] 
                         end
+                    end
+                end
+                if decoded.MovementPowerSettings and type(decoded.MovementPowerSettings) == "table" then
+                    for k, v in pairs(decoded.MovementPowerSettings) do
+                        if MovementPowerSettings[k] ~= nil then MovementPowerSettings[k] = v end
                     end
                 end
                 if decoded.MacroSelections and type(decoded.MacroSelections) == "table" then
@@ -1252,7 +1266,7 @@ local FarmTab = createContentScrollingFrame(400)
 local RaidTab = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
 
-local PvPFrame = createContentScrollingFrame(620)
+local PvPFrame = createContentScrollingFrame(740)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
@@ -2055,8 +2069,16 @@ createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 345)
 createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 385)
 createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 425)
 createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 465)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 505)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 545)
+createSliderRow(PvPFrame, "Super Jump Height", 20, 300, MovementPowerSettings.SuperJumpPower, 505, function(val)
+    MovementPowerSettings.SuperJumpPower = val
+    saveSettings()
+end)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 565)
+createSliderRow(PvPFrame, "Long Dash Distance", 50, 400, MovementPowerSettings.LongDashPower, 605, function(val)
+    MovementPowerSettings.LongDashPower = val
+    saveSettings()
+end)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 665)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -2504,6 +2526,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     pcall(function()
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 
         if input.KeyCode == Keybinds.MenuToggle then
             MainFrame.Visible = not MainFrame.Visible
@@ -2515,6 +2538,15 @@ UserInputService.InputBegan:Connect(function(input, gp)
             FOVSettings.Enabled = not FOVSettings.Enabled
             btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
             btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+        elseif input.KeyCode == Keybinds.SuperJump then
+            if root and humanoid then
+                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, MovementPowerSettings.SuperJumpPower, root.AssemblyLinearVelocity.Z)
+            end
+        elseif input.KeyCode == Keybinds.LongDash then
+            if root and humanoid then
+                local lookVec = camera.CFrame.LookVector
+                root.AssemblyLinearVelocity = Vector3.new(lookVec.X * MovementPowerSettings.LongDashPower, root.AssemblyLinearVelocity.Y, lookVec.Z * MovementPowerSettings.LongDashPower)
+            end
         elseif input.KeyCode == Keybinds.PlayerCam then
             if CamStates.PlayerCamActive then
                 CamStates.PlayerCamActive = false
