@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = true
+local PUBLIC_ACCESS = false
 
 -- Access verification check
 local players = game:GetService("Players")
@@ -28,6 +28,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
 
 local camera = Workspace.CurrentCamera
 local saveFileName = "BloxFruitHubSettings_" .. (localPlayer and localPlayer.Name or "Player") .. ".json"
@@ -171,6 +172,15 @@ local MiscSettings = {
     AntiBountyLose = false,
     AntiBountyDistance = 150,
     AntiBountyFlySpeed = 250
+}
+
+local SavedMusicList = {
+    { Name = "Default Vibe", Id = "1837879082" }
+}
+
+local MusicSettings = {
+    Volume = 1,
+    Looped = true
 }
 
 local FruitNotifierSettings = { Enabled = false }
@@ -1029,7 +1039,8 @@ local function saveSettings()
                 Keybinds = {},
                 MacroSelections = MacroSelections,
                 MacroDelays = MacroDelays,
-                MiscSettings = MiscSettings
+                MiscSettings = MiscSettings,
+                SavedMusicList = SavedMusicList
             }
             for keyName, keyCode in pairs(Keybinds) do 
                 encodedTable.Keybinds[keyName] = keyCode.Name 
@@ -1065,6 +1076,9 @@ local function loadSettings()
                     for k, v in pairs(decoded.MiscSettings) do
                         if MiscSettings[k] ~= nil then MiscSettings[k] = v end
                     end
+                end
+                if decoded.SavedMusicList and type(decoded.SavedMusicList) == "table" then
+                    SavedMusicList = decoded.SavedMusicList
                 end
             end
         end
@@ -1234,6 +1248,7 @@ local PvPFrame = createContentScrollingFrame(620)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
+local MusicFrame = createContentScrollingFrame(500)
 
 local currentTabs = {}
 
@@ -1253,6 +1268,7 @@ local function hideAllFrames()
     MacroFrame.Visible = false
     MiscFrame.Visible = false
     NpcFrame.Visible = false
+    MusicFrame.Visible = false
 end
 
 local function createTabButton(name, yPos, targetFrame)
@@ -1281,6 +1297,7 @@ local function loadPvPModeTabs()
     createTabButton("Macro", 48, MacroFrame)
     createTabButton("Misc", 88, MiscFrame)
     createTabButton("NPC", 128, NpcFrame)
+    createTabButton("Music", 168, MusicFrame)
     PvPFrame.Visible = true
 end
 
@@ -1687,6 +1704,222 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
         saveSettings()
     end)
 end
+
+----------------------------------------------------
+-- MUSIC PLAYER LOGIC AND TAB CONSTRUCTION
+----------------------------------------------------
+local activeSound = Instance.new("Sound")
+activeSound.Name = "HubMusicPlayer"
+activeSound.Volume = MusicSettings.Volume
+activeSound.Looped = MusicSettings.Looped
+activeSound.Parent = SoundService
+
+local function playMusicId(id)
+    local cleanId = id:gsub("%D", "")
+    if cleanId ~= "" then
+        activeSound:Stop()
+        activeSound.SoundId = "rbxassetid://" .. cleanId
+        activeSound:Play()
+    end
+end
+
+-- Music Controller Elements
+local MusicControlBox = Instance.new("Frame")
+MusicControlBox.Size = UDim2.new(1, -10, 0, 110)
+MusicControlBox.Position = UDim2.new(0, 5, 0, 5)
+MusicControlBox.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+MusicControlBox.Parent = MusicFrame
+Instance.new("UICorner", MusicControlBox).CornerRadius = UDim.new(0, 6)
+
+local MusicIdInput = Instance.new("TextBox")
+MusicIdInput.Size = UDim2.new(0.65, -10, 0, 30)
+MusicIdInput.Position = UDim2.new(0, 10, 0, 10)
+MusicIdInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MusicIdInput.Font = Enum.Font.SourceSans
+MusicIdInput.TextSize = 13
+MusicIdInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+MusicIdInput.PlaceholderText = "Enter Sound ID..."
+MusicIdInput.Text = ""
+MusicIdInput.Parent = MusicControlBox
+Instance.new("UICorner", MusicIdInput).CornerRadius = UDim.new(0, 4)
+
+local MusicNameInput = Instance.new("TextBox")
+MusicNameInput.Size = UDim2.new(0.65, -10, 0, 30)
+MusicNameInput.Position = UDim2.new(0, 10, 0, 45)
+MusicNameInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MusicNameInput.Font = Enum.Font.SourceSans
+MusicNameInput.TextSize = 13
+MusicNameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+MusicNameInput.PlaceholderText = "Track Name (for saving)..."
+MusicNameInput.Text = ""
+MusicNameInput.Parent = MusicControlBox
+Instance.new("UICorner", MusicNameInput).CornerRadius = UDim.new(0, 4)
+
+local PlayMusicBtn = Instance.new("TextButton")
+PlayMusicBtn.Size = UDim2.new(0.3, 0, 0, 30)
+PlayMusicBtn.Position = UDim2.new(0.68, 0, 0, 10)
+PlayMusicBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+PlayMusicBtn.Font = Enum.Font.SourceSansBold
+PlayMusicBtn.TextSize = 12
+PlayMusicBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+PlayMusicBtn.Text = "Play ID"
+PlayMusicBtn.Parent = MusicControlBox
+Instance.new("UICorner", PlayMusicBtn).CornerRadius = UDim.new(0, 4)
+
+PlayMusicBtn.MouseButton1Click:Connect(function()
+    playMusicId(MusicIdInput.Text)
+end)
+
+local SaveTrackBtn = Instance.new("TextButton")
+SaveTrackBtn.Size = UDim2.new(0.3, 0, 0, 30)
+SaveTrackBtn.Position = UDim2.new(0.68, 0, 0, 45)
+SaveTrackBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+SaveTrackBtn.Font = Enum.Font.SourceSansBold
+SaveTrackBtn.TextSize = 12
+SaveTrackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveTrackBtn.Text = "Save Music"
+SaveTrackBtn.Parent = MusicControlBox
+Instance.new("UICorner", SaveTrackBtn).CornerRadius = UDim.new(0, 4)
+
+local StopMusicBtn = Instance.new("TextButton")
+StopMusicBtn.Size = UDim2.new(0.46, 0, 0, 25)
+StopMusicBtn.Position = UDim2.new(0, 10, 0, 80)
+StopMusicBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+StopMusicBtn.Font = Enum.Font.SourceSansBold
+StopMusicBtn.TextSize = 12
+StopMusicBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopMusicBtn.Text = "Stop Music"
+StopMusicBtn.Parent = MusicControlBox
+Instance.new("UICorner", StopMusicBtn).CornerRadius = UDim.new(0, 4)
+
+StopMusicBtn.MouseButton1Click:Connect(function()
+    activeSound:Stop()
+end)
+
+local LoopToggleBtn = Instance.new("TextButton")
+LoopToggleBtn.Size = UDim2.new(0.46, 0, 0, 25)
+LoopToggleBtn.Position = UDim2.new(0.51, 0, 0, 80)
+LoopToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+LoopToggleBtn.Font = Enum.Font.SourceSansBold
+LoopToggleBtn.TextSize = 12
+LoopToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 128)
+LoopToggleBtn.Text = "Loop: ON"
+LoopToggleBtn.Parent = MusicControlBox
+Instance.new("UICorner", LoopToggleBtn).CornerRadius = UDim.new(0, 4)
+
+LoopToggleBtn.MouseButton1Click:Connect(function()
+    MusicSettings.Looped = not MusicSettings.Looped
+    activeSound.Looped = MusicSettings.Looped
+    LoopToggleBtn.Text = MusicSettings.Looped and "Loop: ON" or "Loop: OFF"
+    LoopToggleBtn.TextColor3 = MusicSettings.Looped and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+createSliderRow(MusicFrame, "Music Volume", 0, 10, math.floor(MusicSettings.Volume * 5), 120, function(val)
+    MusicSettings.Volume = val / 5
+    activeSound.Volume = MusicSettings.Volume
+end)
+
+local SavedMusicHeader = Instance.new("TextLabel")
+SavedMusicHeader.Size = UDim2.new(1, -10, 0, 25)
+SavedMusicHeader.Position = UDim2.new(0, 5, 0, 175)
+SavedMusicHeader.BackgroundTransparency = 1
+SavedMusicHeader.Font = Enum.Font.SourceSansBold
+SavedMusicHeader.TextSize = 14
+SavedMusicHeader.TextColor3 = Color3.fromRGB(255, 255, 255)
+SavedMusicHeader.TextXAlignment = Enum.TextXAlignment.Left
+SavedMusicHeader.Text = "Saved Songs Playlist:"
+SavedMusicHeader.Parent = MusicFrame
+
+local SavedMusicListFrame = Instance.new("Frame")
+SavedMusicListFrame.Size = UDim2.new(1, -10, 0, 280)
+SavedMusicListFrame.Position = UDim2.new(0, 5, 0, 205)
+SavedMusicListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+SavedMusicListFrame.Parent = MusicFrame
+Instance.new("UICorner", SavedMusicListFrame).CornerRadius = UDim.new(0, 6)
+
+local MusicListScroll = Instance.new("ScrollingFrame")
+MusicListScroll.Size = UDim2.new(1, -8, 1, -8)
+MusicListScroll.Position = UDim2.new(0, 4, 0, 4)
+MusicListScroll.BackgroundTransparency = 1
+MusicListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+MusicListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+MusicListScroll.ScrollBarThickness = 4
+MusicListScroll.Parent = SavedMusicListFrame
+
+local MusicListLayout = Instance.new("UIListLayout")
+MusicListLayout.Padding = UDim.new(0, 4)
+MusicListLayout.Parent = MusicListScroll
+
+local function renderSavedMusicList()
+    for _, child in ipairs(MusicListScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    for idx, track in ipairs(SavedMusicList) do
+        local trackRow = Instance.new("Frame")
+        trackRow.Size = UDim2.new(1, -6, 0, 32)
+        trackRow.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        trackRow.Parent = MusicListScroll
+        Instance.new("UICorner", trackRow).CornerRadius = UDim.new(0, 4)
+
+        local titleLbl = Instance.new("TextLabel")
+        titleLbl.Size = UDim2.new(0.55, 0, 1, 0)
+        titleLbl.Position = UDim2.new(0, 8, 0, 0)
+        titleLbl.BackgroundTransparency = 1
+        titleLbl.Font = Enum.Font.SourceSansBold
+        titleLbl.TextSize = 12
+        titleLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+        titleLbl.Text = track.Name .. " (" .. track.Id .. ")"
+        titleLbl.Parent = trackRow
+
+        local playBtn = Instance.new("TextButton")
+        playBtn.Size = UDim2.new(0, 50, 0, 22)
+        playBtn.Position = UDim2.new(1, -105, 0.5, -11)
+        playBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+        playBtn.Font = Enum.Font.SourceSansBold
+        playBtn.TextSize = 11
+        playBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+        playBtn.Text = "Play"
+        playBtn.Parent = trackRow
+        Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0, 4)
+
+        playBtn.MouseButton1Click:Connect(function()
+            playMusicId(track.Id)
+        end)
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0, 45, 0, 22)
+        delBtn.Position = UDim2.new(1, -50, 0.5, -11)
+        delBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+        delBtn.Font = Enum.Font.SourceSansBold
+        delBtn.TextSize = 11
+        delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        delBtn.Text = "Del"
+        delBtn.Parent = trackRow
+        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+
+        delBtn.MouseButton1Click:Connect(function()
+            table.remove(SavedMusicList, idx)
+            saveSettings()
+            renderSavedMusicList()
+        end)
+    end
+end
+
+SaveTrackBtn.MouseButton1Click:Connect(function()
+    local id = MusicIdInput.Text:gsub("%D", "")
+    local name = MusicNameInput.Text ~= "" and MusicNameInput.Text or ("Track " .. (#SavedMusicList + 1))
+    
+    if id ~= "" then
+        table.insert(SavedMusicList, { Name = name, Id = id })
+        MusicNameInput.Text = ""
+        saveSettings()
+        renderSavedMusicList()
+    end
+end)
+
+renderSavedMusicList()
 
 local btnAutoFarmMastery = createToggleRow(FarmTab, "Auto Farm Mastery (Sweet/Candy)", AutoFarmMasterySettings.Enabled, 5)
 local btnAutoFarmHaunted = createToggleRow(FarmTab, "Auto Farm Money (Haunted Castle)", AutoFarmHauntedSettings.Enabled, 45)
