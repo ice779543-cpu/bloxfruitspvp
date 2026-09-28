@@ -176,8 +176,7 @@ local MiscSettings = {
 
 local SavedMusicList = {
     { Name = "teranova", Id = "82746224492420" },
-    { Name = "meant to be", Id = "122655297602541" },
-    { Name = "dark age", Id = "116976635180369" }
+    { Name = "meant to be", Id = "122655297602541" }
 }
 
 local MusicSettings = {
@@ -1716,6 +1715,12 @@ activeSound.Volume = MusicSettings.Volume
 activeSound.Looped = MusicSettings.Looped
 activeSound.Parent = SoundService
 
+activeSound.Ended:Connect(function()
+    if MusicSettings.Looped then
+        activeSound:Play()
+    end
+end)
+
 local function playMusicId(id)
     local cleanId = id:gsub("%D", "")
     if cleanId ~= "" then
@@ -2548,7 +2553,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 350, root.AssemblyLinearVelocity.Z)
         elseif input.KeyCode == Keybinds.LongDash and root then
             local lookVec = camera.CFrame.LookVector
-            root.AssemblyLinearVelocity = Vector3.new(lookVec.X * 300, root.AssemblyLinearVelocity.Y, lookVec.Z * 300)
+            root.AssemblyLinearVelocity = lookVec * 300
         end
     end)
 end)
