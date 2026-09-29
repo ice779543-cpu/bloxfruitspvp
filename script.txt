@@ -1209,10 +1209,8 @@ OpenButton.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- UPDATED: Continuous Long Dash Hover Logic
+-- FIXED: Unified Keybind Listener for ALL Keys
 -- ==========================================
-local isLongDashHeld = false
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -1255,7 +1253,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             root.Velocity = Vector3.new(root.Velocity.X, MovementPowerSettings.SuperJumpPower, root.Velocity.Z)
         end
     elseif input.KeyCode == Keybinds.LongDash then
-        isLongDashHeld = true
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local lookVector = camera.CFrame.LookVector
+            root.Velocity = Vector3.new(lookVector.X * MovementPowerSettings.LongDashPower, root.Velocity.Y, lookVector.Z * MovementPowerSettings.LongDashPower)
+        end
     elseif input.KeyCode == Keybinds.TpEnemy then
         local target = findAimedPlayerTarget() or findAimedNpcTarget()
         local char = localPlayer.Character
@@ -1264,53 +1267,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             root.CFrame = target.CFrame + Vector3.new(0, 5, 0)
         end
     end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if input.KeyCode == Keybinds.LongDash then
-        isLongDashHeld = false
-    end
-end)
-
--- Handles keeping the player suspended/dashing in the air while holding LongDash
-RunService.Stepped:Connect(function()
-    pcall(function()
-        local char = localPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-
-        local bv = root:FindFirstChild("LongDashHoverBV")
-        local bg = root:FindFirstChild("LongDashHoverBG")
-
-        if isLongDashHeld then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-
-            if not bv then
-                bv = Instance.new("BodyVelocity")
-                bv.Name = "LongDashHoverBV"
-                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                bv.Parent = root
-            end
-            if not bg then
-                bg = Instance.new("BodyGyro")
-                bg.Name = "LongDashHoverBG"
-                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                bg.Parent = root
-            end
-
-            local lookVector = camera.CFrame.LookVector
-            bv.Velocity = Vector3.new(lookVector.X * MovementPowerSettings.LongDashPower, 0, lookVector.Z * MovementPowerSettings.LongDashPower)
-            bg.CFrame = camera.CFrame
-        else
-            if bv then bv:Destroy() end
-            if bg then bg:Destroy() end
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = true end
-            end
-        end
-    end)
 end)
 
 local TitleLabel = Instance.new("TextLabel")
@@ -2636,27 +2592,35 @@ RunService.RenderStepped:Connect(function()
                             textLbl.BackgroundTransparency = 1
                             textLbl.Font = Enum.Font.SourceSansBold
                             textLbl.TextSize = 13
-                            textLbl.TextColor3 = espColor
-                            textLbl.TextStrokeTransparency = 0
+                            textLbl.TextStrokeTransparency = 0.2
                             textLbl.Parent = billboard
                         end
 
+                        billboard.Adornee = root
                         local textLbl = billboard:FindFirstChild("TextInfo")
                         if textLbl then
-                            local distance = math.floor((root.Position - camera.CFrame.Position).Magnitude)
-                            textLbl.Text = string.Format("%s\nLevel: %s [%d studs]", plr.Name, playerLevel, distance)
                             textLbl.TextColor3 = espColor
+                            textLbl.Text = string.format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
                         end
-                        billboard.Adornee = root
                     else
                         if existingEsp then existingEsp:Destroy() end
                     end
                 end
             end
         else
-            for _, child in ipairs(espFolder:GetChildren()) do
-                child:Destroy()
-            end
+            for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
+        end
+        
+        if FOVSettings.Enabled then
+            local hue = (tick() * FOVSettings.RainbowSpeed) % 1
+            FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
+
+            local screenSize = camera.ViewportSize
+            local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+            FOVCircle.Position = screenCenter
+            FOVCircle.Visible = MainFrame.Visible == false
+        else
+            FOVCircle.Visible = false
         end
     end)
-end
+end)
