@@ -65,6 +65,9 @@ local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
 
+-- No Stun Settings
+local NoStunSettings = { Enabled = false }
+
 local AutoFarmMasterySettings = {
     Enabled = false,
     FlySpeed = 220,
@@ -192,6 +195,7 @@ local MiscSettings = {
 }
 
 local SavedMusicList = {
+    { Name = "bivol", Id = "90089940136467" },
     { Name = "idk", Id = "93162865190777" },
     { Name = "vem vem", Id = "119872638207767" },
     { Name = "teranova", Id = "82746224492420" },
@@ -663,14 +667,12 @@ local function findNearestMaterialNPC()
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
-    -- Update sea and materials dynamically each lookup tick
     currentSea = GetCurrentSea()
     availableMaterials = MaterialData[currentSea] or MaterialData["Sea 3"]
 
     local matInfo = availableMaterials[AutoFarmMaterialSettings.SelectedMaterialIndex]
     if not matInfo or not matInfo.Mobs then return nil end
 
-    -- 1. Check loaded mobs in workspace
     local enemiesFolder = Workspace:FindFirstChild("Enemies")
     if enemiesFolder then
         for _, mob in ipairs(enemiesFolder:GetChildren()) do
@@ -697,7 +699,6 @@ local function findNearestMaterialNPC()
         end
     end
 
-    -- 2. Fallback to hardcoded coordinates if mob is on another island and not spawned yet
     if not bestTargetPos then
         for _, mobName in ipairs(matInfo.Mobs) do
             for key, spawnPos in pairs(MobSpawnLocations) do
@@ -1051,6 +1052,60 @@ local function manageWaterPlatform()
     end)
 end
 
+-- Setup No Stun Logic (Fully Fixed & Enhanced)
+local function setupCharacterNoStun(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    local function applyNoStun()
+        if not NoStunSettings.Enabled then return end
+        pcall(function()
+            humanoid.Sit = false
+            humanoid.PlatformStand = false
+            
+            -- Clear out common Blox Fruits stun/stagger folders or attributes if present
+            for _, valObj in ipairs(character:GetChildren()) do
+                if valObj.Name:lower():find("stun") or valObj.Name:lower():find("stagger") or valObj.Name:lower():find("freeze") then
+                    if valObj:IsA("BoolValue") then valObj.Value = false
+                    elseif valObj:IsA("NumberValue") then valObj.Value = 0
+                    elseif valObj.Name:lower() == "stun" then valObj:Destroy() end
+                end
+            end
+
+            local state = humanoid:GetState()
+            if state == Enum.HumanoidStateType.Ragdoll or 
+               state == Enum.HumanoidStateType.FallingDown or 
+               state == Enum.HumanoidStateType.PlatformStanding or
+               state == Enum.HumanoidStateType.Seated then
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end)
+    end
+
+    humanoid.StateChanged:Connect(function(_, newState)
+        if NoStunSettings.Enabled then
+            if newState == Enum.HumanoidStateType.Ragdoll or 
+               newState == Enum.HumanoidStateType.FallingDown or 
+               newState == Enum.HumanoidStateType.PlatformStanding or
+               newState == Enum.HumanoidStateType.Seated then
+                humanoid.Sit = false
+                humanoid.PlatformStand = false
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end
+    end)
+
+    RunService.Stepped:Connect(function()
+        if NoStunSettings.Enabled then
+            applyNoStun()
+        end
+    end)
+end
+
+if localPlayer.Character then
+    setupCharacterNoStun(localPlayer.Character)
+end
+localPlayer.CharacterAdded:Connect(setupCharacterNoStun)
+
 local function saveSettings()
     pcall(function()
         if writefile and HttpService then
@@ -1148,6 +1203,115 @@ MainFrame.Active = true
 MainFrame.Visible = true 
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- ==========================================
+-- UPDATED: Continuous Long Dash Hover Logic
+-- ==========================================
+local isLongDashHeld = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Keybinds.MenuToggle then
+        MainFrame.Visible = not MainFrame.Visible
+    elseif input.KeyCode == Keybinds.MenuHide then
+        MainFrame.Visible = false
+    elseif input.KeyCode == Keybinds.MacroKey then
+        runMacroSequence()
+    elseif input.KeyCode == Keybinds.AimbotKey then
+        FOVSettings.Enabled = not FOVSettings.Enabled
+    elseif input.KeyCode == Keybinds.PlayerCam then
+        if not CamStates.PlayerCamActive then
+            local target = findAimedPlayerTarget()
+            if target then
+                CamStates.LockedPlayerTarget = target
+                CamStates.PlayerCamActive = true
+                CamStates.NpcCamActive = false
+            end
+        else
+            CamStates.PlayerCamActive = false
+            CamStates.LockedPlayerTarget = nil
+        end
+    elseif input.KeyCode == Keybinds.NpcCam then
+        if not CamStates.NpcCamActive then
+            local target = findAimedNpcTarget()
+            if target then
+                CamStates.LockedNpcTarget = target
+                CamStates.NpcCamActive = true
+                CamStates.PlayerCamActive = false
+            end
+        else
+            CamStates.NpcCamActive = false
+            CamStates.LockedNpcTarget = nil
+        end
+    elseif input.KeyCode == Keybinds.SuperJump then
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Velocity = Vector3.new(root.Velocity.X, MovementPowerSettings.SuperJumpPower, root.Velocity.Z)
+        end
+    elseif input.KeyCode == Keybinds.LongDash then
+        isLongDashHeld = true
+    elseif input.KeyCode == Keybinds.TpEnemy then
+        local target = findAimedPlayerTarget() or findAimedNpcTarget()
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if target and root then
+            root.CFrame = target.CFrame + Vector3.new(0, 5, 0)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == Keybinds.LongDash then
+        isLongDashHeld = false
+    end
+end)
+
+-- Handles keeping the player suspended/dashing in the air while holding LongDash
+RunService.Stepped:Connect(function()
+    pcall(function()
+        local char = localPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        local bv = root:FindFirstChild("LongDashHoverBV")
+        local bg = root:FindFirstChild("LongDashHoverBG")
+
+        if isLongDashHeld then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "LongDashHoverBV"
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Parent = root
+            end
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "LongDashHoverBG"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.Parent = root
+            end
+
+            local lookVector = camera.CFrame.LookVector
+            bv.Velocity = Vector3.new(lookVector.X * MovementPowerSettings.LongDashPower, 0, lookVector.Z * MovementPowerSettings.LongDashPower)
+            bg.CFrame = camera.CFrame
+        else
+            if bv then bv:Destroy() end
+            if bg then bg:Destroy() end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end)
+end)
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 45)
@@ -1266,7 +1430,7 @@ local FarmTab = createContentScrollingFrame(400)
 local RaidTab = createContentScrollingFrame(300)
 local FruitFrame = createContentScrollingFrame(300)
 
-local PvPFrame = createContentScrollingFrame(740)
+local PvPFrame = createContentScrollingFrame(780)
 local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
@@ -1738,7 +1902,7 @@ local activeSound = Instance.new("Sound")
 activeSound.Name = "HubMusicPlayer"
 activeSound.Volume = MusicSettings.Volume
 activeSound.Looped = MusicSettings.Looped
-activeSound.SoundId = "rbxassetid://93162865190777"
+activeSound.SoundId = "rbxassetid://90089940136467"
 activeSound.Parent = SoundService
 
 activeSound.Ended:Connect(function()
@@ -2040,8 +2204,15 @@ end)
 local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
+local btnNoStun = createToggleRow(PvPFrame, "No Stun", NoStunSettings.Enabled, 125)
 
-local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 125)
+btnNoStun.MouseButton1Click:Connect(function()
+    NoStunSettings.Enabled = not NoStunSettings.Enabled
+    btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
+    btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+end)
+
+local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 165)
 
 btnPlayerHitbox.MouseButton1Click:Connect(function()
     PlayerHitboxSettings.Enabled = not PlayerHitboxSettings.Enabled
@@ -2052,33 +2223,33 @@ btnPlayerHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
-createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Size, 165, function(val)
+createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Size, 205, function(val)
     PlayerHitboxSettings.Size = val
 end)
 
-createSliderRow(PvPFrame, "Player Hitbox Transparency", 0, 100, PlayerHitboxSettings.Transparency, 225, function(val)
+createSliderRow(PvPFrame, "Player Hitbox Transparency", 0, 100, PlayerHitboxSettings.Transparency, 265, function(val)
     PlayerHitboxSettings.Transparency = val
 end)
 
-createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 285, function(val)
+createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 325, function(val)
     FOVSettings.Radius = val
     FOVCircle.Radius = val
 end)
 
-createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 345)
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 385)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 425)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 465)
-createSliderRow(PvPFrame, "Super Jump Height", 20, 300, MovementPowerSettings.SuperJumpPower, 505, function(val)
+createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 385)
+createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 425)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 465)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 505)
+createSliderRow(PvPFrame, "Super Jump Height", 20, 300, MovementPowerSettings.SuperJumpPower, 545, function(val)
     MovementPowerSettings.SuperJumpPower = val
     saveSettings()
 end)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 565)
-createSliderRow(PvPFrame, "Long Dash Distance", 50, 400, MovementPowerSettings.LongDashPower, 605, function(val)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 605)
+createSliderRow(PvPFrame, "Long Dash Distance", 50, 400, MovementPowerSettings.LongDashPower, 645, function(val)
     MovementPowerSettings.LongDashPower = val
     saveSettings()
 end)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 665)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 705)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -2465,132 +2636,27 @@ RunService.RenderStepped:Connect(function()
                             textLbl.BackgroundTransparency = 1
                             textLbl.Font = Enum.Font.SourceSansBold
                             textLbl.TextSize = 13
-                            textLbl.TextStrokeTransparency = 0.2
+                            textLbl.TextColor3 = espColor
+                            textLbl.TextStrokeTransparency = 0
                             textLbl.Parent = billboard
                         end
 
-                        billboard.Adornee = root
                         local textLbl = billboard:FindFirstChild("TextInfo")
                         if textLbl then
+                            local distance = math.floor((root.Position - camera.CFrame.Position).Magnitude)
+                            textLbl.Text = string.Format("%s\nLevel: %s [%d studs]", plr.Name, playerLevel, distance)
                             textLbl.TextColor3 = espColor
-                            textLbl.Text = string.format("%s [Lvl: %s]\n[%d / %d HP]", plr.Name, playerLevel, math.floor(hum.Health), math.floor(hum.MaxHealth))
                         end
+                        billboard.Adornee = root
                     else
                         if existingEsp then existingEsp:Destroy() end
                     end
                 end
             end
         else
-            for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
-        end
-        
-        if FOVSettings.Enabled then
-            local hue = (tick() * FOVSettings.RainbowSpeed) % 1
-            FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
-
-            local screenSize = camera.ViewportSize
-            local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-            FOVCircle.Position = screenCenter
-            FOVCircle.Visible = MainFrame.Visible == false
-
-            local target = nil
-            local shortestDist = math.huge
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and not isAlly(plr) and plr.Character then
-                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                    local hum = plr.Character:FindFirstChild("Humanoid")
-                    if root and hum and hum.Health > 0 then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                        if onScreen then
-                            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                            if screenDist <= FOVSettings.Radius and screenDist < shortestDist then
-                                shortestDist = screenDist
-                                target = root
-                            end
-                        end
-                    end
-                end
-            end
-
-            if target then
-                camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-            end
-        else
-            FOVCircle.Visible = false
-        end
-    end)
-end)
-
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    pcall(function()
-        local char = localPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-
-        if input.KeyCode == Keybinds.MenuToggle then
-            MainFrame.Visible = not MainFrame.Visible
-        elseif input.KeyCode == Keybinds.MenuHide then
-            ScreenGui.Enabled = not ScreenGui.Enabled
-        elseif input.KeyCode == Keybinds.MacroKey then
-            runMacroSequence()
-        elseif input.KeyCode == Keybinds.AimbotKey then
-            FOVSettings.Enabled = not FOVSettings.Enabled
-            btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
-            btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
-        elseif input.KeyCode == Keybinds.SuperJump then
-            if root and humanoid then
-                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, MovementPowerSettings.SuperJumpPower, root.AssemblyLinearVelocity.Z)
-            end
-        elseif input.KeyCode == Keybinds.LongDash then
-            if root and humanoid then
-                local lookVec = camera.CFrame.LookVector
-                root.AssemblyLinearVelocity = Vector3.new(lookVec.X * MovementPowerSettings.LongDashPower, root.AssemblyLinearVelocity.Y, lookVec.Z * MovementPowerSettings.LongDashPower)
-            end
-        elseif input.KeyCode == Keybinds.PlayerCam then
-            if CamStates.PlayerCamActive then
-                CamStates.PlayerCamActive = false
-                CamStates.LockedPlayerTarget = nil
-            else
-                local val = findAimedPlayerTarget()
-                if val then
-                    CamStates.PlayerCamActive = true
-                    CamStates.LockedPlayerTarget = val
-                    CamStates.NpcCamActive = false
-                    CamStates.LockedNpcTarget = nil
-                end
-            end
-        elseif input.KeyCode == Keybinds.NpcCam then
-            if CamStates.NpcCamActive then
-                CamStates.NpcCamActive = false
-                CamStates.LockedNpcTarget = nil
-            else
-                local val = findAimedNpcTarget()
-                if val then
-                    CamStates.NpcCamActive = true
-                    CamStates.LockedNpcTarget = val
-                    CamStates.PlayerCamActive = false
-                    CamStates.LockedPlayerTarget = nil
-                end
-            end
-        elseif input.KeyCode == Keybinds.TpEnemy then
-            local closestRoot = nil
-            local shortestDist = math.huge
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= localPlayer and not isAlly(plr) and plr.Character then
-                    local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                    if enemyRoot and root then
-                        local dist = (enemyRoot.Position - root.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestRoot = enemyRoot
-                        end
-                    end
-                end
-            end
-            if closestRoot and root then
-                root.CFrame = closestRoot.CFrame * CFrame.new(0, 0, 4)
+            for _, child in ipairs(espFolder:GetChildren()) do
+                child:Destroy()
             end
         end
     end)
-end)
+end
