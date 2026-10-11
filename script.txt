@@ -3,7 +3,7 @@
 -- true  = Everyone can use the script
 -- false = Only Kjdaking918 can use the script
 -- ==========================================
-local PUBLIC_ACCESS = true
+local PUBLIC_ACCESS = false
 
 -- Access verification check
 local players = game:GetService("Players")
