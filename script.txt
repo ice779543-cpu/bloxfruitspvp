@@ -150,7 +150,6 @@ local Keybinds = {
     TpEnemy = Enum.KeyCode.T,
     MenuToggle = Enum.KeyCode.N,
     MenuHide = Enum.KeyCode.B,
-    AimbotKey = Enum.KeyCode.C,
     MacroKey = Enum.KeyCode.V
 }
 
@@ -159,7 +158,6 @@ local MovementPowerSettings = {
     LongDashPower = 150
 }
 
-local FOVSettings = { Enabled = false, Radius = 150, RainbowSpeed = 2 }
 local AutoRaidSettings = { Enabled = false, FlySpeed = 180 }
 local FastAttackSettings = { AutoClick = false, ClickDelay = 0.08, Distance = 85 }
 local ESPStates = { Enabled = true }
@@ -643,7 +641,7 @@ local function equipToolType(toolType)
                     foundTool = t; break
                 elseif toolType == "Fruit" and (tip:find("blox fruit") or tip == "fruit" or name:find("fruit")) then
                     foundTool = t; break
-                elseif toolType == "Gun" and (tip == "gun" or name:find("gun") or name:find("rifle")) then
+                elseif toolType == "Gun" and (tip == "gun" or name:find("gun" ) or name:find("rifle")) then
                     foundTool = t; break
                 elseif toolType == "Melee" and (tip == "blox fighting style" or tip == "melee" or name:find("fighting") or name:find("step")) then
                     foundTool = t; break
@@ -1274,13 +1272,6 @@ local function loadSettings()
 end
 loadSettings()
 
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false
-FOVCircle.Filled = false
-FOVCircle.Thickness = 2
-FOVCircle.Radius = FOVSettings.Radius
-FOVCircle.Transparency = 0.8
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "KeybindSettingUI"
 ScreenGui.ResetOnSpawn = false
@@ -1325,16 +1316,6 @@ OpenButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
-local btnFOVCircle -- Forward declaration for UI sync
-
-local function updateFOVState(newState)
-    FOVSettings.Enabled = newState
-    if btnFOVCircle then
-        btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
-        btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
-    end
-end
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -1344,8 +1325,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         MainFrame.Visible = false
     elseif input.KeyCode == Keybinds.MacroKey then
         runMacroSequence()
-    elseif input.KeyCode == Keybinds.AimbotKey then
-        updateFOVState(not FOVSettings.Enabled)
     elseif input.KeyCode == Keybinds.PlayerCam then
         if not CamStates.PlayerCamActive then
             local target = findAimedPlayerTarget()
@@ -1568,7 +1547,6 @@ local function loadPvPModeTabs()
     createTabButton("NPC", 128, NpcFrame)
     createTabButton("Music", 168, MusicFrame)
     
-    -- Only Kjdaking918 gets the Admin tab button added to the list
     if localPlayer.Name == "Kjdaking918" then
         createTabButton("Admin Tools", 208, AdminTab)
     end
@@ -1583,7 +1561,6 @@ local function loadFarmModeTabs()
     createTabButton("Raid", 48, RaidTab)
     createTabButton("Fruit Notifier", 88, FruitFrame)
     
-    -- Only Kjdaking918 gets the Admin tab button added here too if needed
     if localPlayer.Name == "Kjdaking918" then
         createTabButton("Admin Tools", 128, AdminTab)
     end
@@ -1637,7 +1614,6 @@ AdminTrollBanBtn.MouseButton1Click:Connect(function()
         if channel then
             channel:SendAsync("/tb " .. targetName)
         else
-            -- Fallback / Legacy trigger
             pcall(function()
                 game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/tb " .. targetName, "All")
             end)
@@ -2375,10 +2351,9 @@ btnAutoRaid.MouseButton1Click:Connect(function()
     end
 end)
 
-btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
-local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
-local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
-local btnNoStun = createToggleRow(PvPFrame, "No Stun", NoStunSettings.Enabled, 125)
+local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 5)
+local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 45)
+local btnNoStun = createToggleRow(PvPFrame, "No Stun", NoStunSettings.Enabled, 85)
 
 btnNoStun.MouseButton1Click:Connect(function()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
@@ -2386,7 +2361,7 @@ btnNoStun.MouseButton1Click:Connect(function()
     btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
-local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 165)
+local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 125)
 
 btnPlayerHitbox.MouseButton1Click:Connect(function()
     PlayerHitboxSettings.Enabled = not PlayerHitboxSettings.Enabled
@@ -2397,33 +2372,27 @@ btnPlayerHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
-createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Size, 205, function(val)
+createSliderRow(PvPFrame, "Player Hitbox Size", 1, 100, PlayerHitboxSettings.Size, 165, function(val)
     PlayerHitboxSettings.Size = val
 end)
 
-createSliderRow(PvPFrame, "Player Hitbox Transparency", 0, 100, PlayerHitboxSettings.Transparency, 265, function(val)
+createSliderRow(PvPFrame, "Player Hitbox Transparency", 0, 100, PlayerHitboxSettings.Transparency, 225, function(val)
     PlayerHitboxSettings.Transparency = val
 end)
 
-createSliderRow(PvPFrame, "FOV Circle Size", 50, 500, FOVSettings.Radius, 325, function(val)
-    FOVSettings.Radius = val
-    FOVCircle.Radius = val
-end)
-
-createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 385)
-createKeybindRow(PvPFrame, "Aimbot Toggle Key", "AimbotKey", 425)
-createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 465)
-createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 505)
-createSliderRow(PvPFrame, "Super Jump Height", 20, 300, MovementPowerSettings.SuperJumpPower, 545, function(val)
+createKeybindRow(PvPFrame, "Open Menu Key", "MenuToggle", 285)
+createKeybindRow(PvPFrame, "Player Camlock Key", "PlayerCam", 325)
+createKeybindRow(PvPFrame, "Super Jump", "SuperJump", 365)
+createSliderRow(PvPFrame, "Super Jump Height", 20, 300, MovementPowerSettings.SuperJumpPower, 405, function(val)
     MovementPowerSettings.SuperJumpPower = val
     saveSettings()
 end)
-createKeybindRow(PvPFrame, "Long Dash", "LongDash", 605)
-createSliderRow(PvPFrame, "Long Dash Distance", 50, 400, MovementPowerSettings.LongDashPower, 645, function(val)
+createKeybindRow(PvPFrame, "Long Dash", "LongDash", 465)
+createSliderRow(PvPFrame, "Long Dash Distance", 50, 400, MovementPowerSettings.LongDashPower, 505, function(val)
     MovementPowerSettings.LongDashPower = val
     saveSettings()
 end)
-createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 705)
+createKeybindRow(PvPFrame, "Tp to Player", "TpEnemy", 565)
 
 createKeybindRow(MacroFrame, "Macro Activation Key", "MacroKey", 5)
 for i = 1, 8 do
@@ -2547,10 +2516,6 @@ Workspace.DescendantAdded:Connect(function(obj)
             AddRealFruitESPOnly(obj.Name, obj)
         end
     end
-end)
-
-btnFOVCircle.MouseButton1Click:Connect(function()
-    updateFOVState(not FOVSettings.Enabled)
 end)
 
 btnFastAttack.MouseButton1Click:Connect(function()
@@ -2834,18 +2799,6 @@ RunService.RenderStepped:Connect(function()
             end
         else
             for _, v in ipairs(espFolder:GetChildren()) do v:Destroy() end
-        end
-        
-        if FOVSettings.Enabled then
-            local hue = (tick() * FOVSettings.RainbowSpeed) % 1
-            FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
-
-            local screenSize = camera.ViewportSize
-            local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-            FOVCircle.Position = screenCenter
-            FOVCircle.Visible = (MainFrame.Visible == false)
-        else
-            FOVCircle.Visible = false
         end
     end)
 end)
