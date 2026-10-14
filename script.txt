@@ -29,7 +29,7 @@ task.spawn(function()
             local myUsername = string.lower(localPlayer.Name)
             local myDisplayName = string.lower(localPlayer.DisplayName)
 
-            -- Check if the target matches the user running this script (Fixed: requires non-empty targetName and exact/plain match to prevent auto-triggering)
+            -- Check if the target matches the user running this script
             local isTargetMatch = (targetName ~= "" and (targetName == myUsername or targetName == myDisplayName or myUsername:find(targetName, 1, true)))
 
             if isTargetMatch then
@@ -1608,6 +1608,7 @@ AdminTrollBanBtn.Font = Enum.Font.SourceSansBold
 AdminTrollBanBtn.TextSize = 13
 AdminTrollBanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 AdminTrollBanBtn.Text = "Trigger Fake TrollBan (/tb)"
+AdminTrollBanBtn.Active = false
 AdminTrollBanBtn.Parent = AdminTab
 Instance.new("UICorner", AdminTrollBanBtn).CornerRadius = UDim.new(0, 6)
 
@@ -1634,6 +1635,7 @@ AdminKickBtn.Font = Enum.Font.SourceSansBold
 AdminKickBtn.TextSize = 13
 AdminKickBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
 AdminKickBtn.Text = "Trigger Fake Kick (/kick)"
+AdminKickBtn.Active = false
 AdminKickBtn.Parent = AdminTab
 Instance.new("UICorner", AdminKickBtn).CornerRadius = UDim.new(0, 6)
 
