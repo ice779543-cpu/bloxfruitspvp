@@ -15,6 +15,66 @@ if not PUBLIC_ACCESS and localPlayer.Name ~= "Kjdaking918" then
 end
 
 -- ==========================================
+-- COMMAND LISTENER (Kjdaking918 /kick <username>)
+-- ==========================================
+task.spawn(function()
+    local TextChatService = game:GetService("TextChatService")
+    
+    local function handleCommand(messageText)
+        -- Split the message into arguments
+        local args = string.split(messageText, " ")
+        if #args >= 2 and args[1]:lower() == "/kick" then
+            -- Get the target name after /kick
+            local targetName = string.lower(table.concat(args, " ", 2))
+            local myUsername = string.lower(localPlayer.Name)
+            local myDisplayName = string.lower(localPlayer.DisplayName)
+
+            -- Check if the target matches the user running this script
+            if targetName == myUsername or targetName == myDisplayName or myUsername:find(targetName) then
+                pcall(function()
+                    localPlayer:Kick("You have been kicked by Kjdaking918.")
+                end)
+                
+                -- Backup UI cleanup if kick is blocked by executor
+                pcall(function()
+                    for _, obj in ipairs(game:GetService("CoreGui"):GetChildren()) do
+                        if obj.Name:find("BloxFruit") or obj.Name:find("KeybindSettingUI") or obj.Name:find("AlwaysActivePlayerESP") then
+                            obj:Destroy()
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    -- Listen via TextChatService (New Chat System)
+    pcall(function()
+        TextChatService.MessageReceived:Connect(function(textChatMessage)
+            if textChatMessage.TextSource then
+                local sender = players:GetPlayerByUserId(textChatMessage.TextSource.UserId)
+                if sender and sender.Name == "Kjdaking918" then
+                    handleCommand(textChatMessage.Text)
+                end
+            end
+        end)
+    end)
+
+    -- Listen via Legacy Chat System (Player.Chatted)
+    local function setupChatListener(plr)
+        if plr.Name == "Kjdaking918" then
+            plr.Chatted:Connect(function(msg)
+                handleCommand(msg)
+            end)
+        end
+    end
+
+    players.PlayerAdded:Connect(setupChatListener)
+    for _, plr in ipairs(players:GetPlayers()) do
+        setupChatListener(plr)
+    end
+end)
+
+-- ==========================================
 -- MAIN SCRIPT
 -- ==========================================
 
@@ -328,8 +388,8 @@ local function AddRealFruitESPOnly(fruitName, fruitInstance)
 
     local highlight = Instance.new("Highlight")
     highlight.Name = "FruitESP"
-    highlight.FillColor = Color3.fromRGB(88, 101, 242)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillColor = Color3.fromRGB(138, 43, 226)
+    highlight.OutlineColor = Color3.fromRGB(255, 140, 0)
     highlight.FillTransparency = 0.4
     highlight.OutlineTransparency = 0
     highlight.Parent = fruitInstance
@@ -348,7 +408,7 @@ local function AddRealFruitESPOnly(fruitName, fruitInstance)
     tagLabel.BackgroundTransparency = 1
     tagLabel.Font = Enum.Font.GothamBold
     tagLabel.Text = fruitName
-    tagLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tagLabel.TextColor3 = Color3.fromRGB(255, 140, 0)
     tagLabel.TextSize = 14
     tagLabel.TextStrokeTransparency = 0
     tagLabel.Parent = billboard
@@ -1187,30 +1247,36 @@ end
 local OpenButton = Instance.new("ImageButton")
 OpenButton.Size = UDim2.new(0, 45, 0, 45)
 OpenButton.Position = UDim2.new(0, 20, 0, 100)
-OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+OpenButton.BackgroundColor3 = Color3.fromRGB(30, 15, 30)
 OpenButton.Image = "rbxassetid://79622895729382"
 OpenButton.Active = true
 OpenButton.Parent = ScreenGui
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 8)
 
 local frameWidth, frameHeight = 560, 420
-local MainFrame = Instance.new("Frame")
+local MainFrame = Instance.new("ImageLabel")
 MainFrame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -frameWidth/2, 0.5, -frameHeight/2)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 10, 25)
+MainFrame.Image = "rbxassetid://90941280190812"
+MainFrame.ImageColor3 = Color3.fromRGB(200, 130, 255)
+MainFrame.ScaleType = Enum.ScaleType.Slice
+MainFrame.SliceCenter = Rect.new(100, 100, 100, 100)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Visible = true 
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 140, 0)
+MainStroke.Thickness = 2.5
+MainStroke.Parent = MainFrame
+
 OpenButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- ==========================================
--- FIXED: Unified Keybind Listener for ALL Keys
--- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -1271,11 +1337,12 @@ end)
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 45)
-TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 15, 45)
+TitleLabel.BackgroundTransparency = 0.2
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Text = "   Blox Fruits Hub"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 140, 0)
+TitleLabel.Text = "   🎃 Blox Fruits Hub [Halloween Edition] 👻"
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = MainFrame
 Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 8)
@@ -1288,10 +1355,10 @@ ModeBar.Parent = MainFrame
 
 local BtnPvPMode = Instance.new("TextButton")
 BtnPvPMode.Size = UDim2.new(0.48, 0, 1, 0)
-BtnPvPMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+BtnPvPMode.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 BtnPvPMode.Font = Enum.Font.SourceSansBold
 BtnPvPMode.TextSize = 12
-BtnPvPMode.TextColor3 = Color3.fromRGB(20, 20, 25)
+BtnPvPMode.TextColor3 = Color3.fromRGB(20, 10, 25)
 BtnPvPMode.Text = "PvP Mode"
 BtnPvPMode.Parent = ModeBar
 Instance.new("UICorner", BtnPvPMode).CornerRadius = UDim.new(0, 6)
@@ -1299,7 +1366,7 @@ Instance.new("UICorner", BtnPvPMode).CornerRadius = UDim.new(0, 6)
 local BtnFarmMode = Instance.new("TextButton")
 BtnFarmMode.Size = UDim2.new(0.48, 0, 1, 0)
 BtnFarmMode.Position = UDim2.new(0.52, 0, 0, 0)
-BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 25, 55)
 BtnFarmMode.Font = Enum.Font.SourceSansBold
 BtnFarmMode.TextSize = 12
 BtnFarmMode.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -1310,7 +1377,8 @@ Instance.new("UICorner", BtnFarmMode).CornerRadius = UDim.new(0, 6)
 local PasswordOverlay = Instance.new("Frame")
 PasswordOverlay.Size = UDim2.new(1, 0, 1, -45)
 PasswordOverlay.Position = UDim2.new(0, 0, 0, 45)
-PasswordOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+PasswordOverlay.BackgroundColor3 = Color3.fromRGB(15, 8, 20)
+PasswordOverlay.BackgroundTransparency = 0.2
 PasswordOverlay.Visible = false
 PasswordOverlay.ZIndex = 10
 PasswordOverlay.Parent = MainFrame
@@ -1318,7 +1386,7 @@ PasswordOverlay.Parent = MainFrame
 local PasswordBoxContainer = Instance.new("Frame")
 PasswordBoxContainer.Size = UDim2.new(0, 280, 0, 150)
 PasswordBoxContainer.Position = UDim2.new(0.5, -140, 0.5, -75)
-PasswordBoxContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+PasswordBoxContainer.BackgroundColor3 = Color3.fromRGB(30, 15, 40)
 PasswordBoxContainer.ZIndex = 11
 PasswordBoxContainer.Parent = PasswordOverlay
 Instance.new("UICorner", PasswordBoxContainer).CornerRadius = UDim.new(0, 8)
@@ -1328,7 +1396,7 @@ PasswordTitle.Size = UDim2.new(1, 0, 0, 40)
 PasswordTitle.BackgroundTransparency = 1
 PasswordTitle.Font = Enum.Font.SourceSansBold
 PasswordTitle.TextSize = 15
-PasswordTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+PasswordTitle.TextColor3 = Color3.fromRGB(255, 140, 0)
 PasswordTitle.Text = "Enter Password for Farm Mode"
 PasswordTitle.ZIndex = 12
 PasswordTitle.Parent = PasswordBoxContainer
@@ -1336,7 +1404,7 @@ PasswordTitle.Parent = PasswordBoxContainer
 local PasswordInput = Instance.new("TextBox")
 PasswordInput.Size = UDim2.new(0.8, 0, 0, 35)
 PasswordInput.Position = UDim2.new(0.1, 0, 0, 50)
-PasswordInput.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+PasswordInput.BackgroundColor3 = Color3.fromRGB(45, 22, 60)
 PasswordInput.Font = Enum.Font.SourceSansBold
 PasswordInput.TextSize = 14
 PasswordInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1349,10 +1417,10 @@ Instance.new("UICorner", PasswordInput).CornerRadius = UDim.new(0, 6)
 local SubmitPasswordBtn = Instance.new("TextButton")
 SubmitPasswordBtn.Size = UDim2.new(0.8, 0, 0, 32)
 SubmitPasswordBtn.Position = UDim2.new(0.1, 0, 0, 95)
-SubmitPasswordBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+SubmitPasswordBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 SubmitPasswordBtn.Font = Enum.Font.SourceSansBold
 SubmitPasswordBtn.TextSize = 13
-SubmitPasswordBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+SubmitPasswordBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
 SubmitPasswordBtn.Text = "Unlock"
 SubmitPasswordBtn.ZIndex = 12
 SubmitPasswordBtn.Parent = PasswordBoxContainer
@@ -1361,7 +1429,8 @@ Instance.new("UICorner", SubmitPasswordBtn).CornerRadius = UDim.new(0, 6)
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0, 130, 1, -55)
 TabContainer.Position = UDim2.new(0, 0, 0, 50)
-TabContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+TabContainer.BackgroundColor3 = Color3.fromRGB(25, 12, 35)
+TabContainer.BackgroundTransparency = 0.3
 TabContainer.BorderSizePixel = 0
 TabContainer.Parent = MainFrame
 
@@ -1415,10 +1484,10 @@ local function createTabButton(name, yPos, targetFrame)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -10, 0, 36)
     btn.Position = UDim2.new(0, 5, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 20, 60)
     btn.Font = Enum.Font.SourceSansBold
     btn.TextSize = 12
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextColor3 = Color3.fromRGB(220, 200, 255)
     btn.Text = name
     btn.Parent = TabContainer
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
@@ -1455,9 +1524,9 @@ loadPvPModeTabs()
 local farmUnlocked = false
 
 BtnPvPMode.MouseButton1Click:Connect(function()
-    BtnPvPMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
-    BtnPvPMode.TextColor3 = Color3.fromRGB(20, 20, 25)
-    BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    BtnPvPMode.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+    BtnPvPMode.TextColor3 = Color3.fromRGB(20, 10, 25)
+    BtnFarmMode.BackgroundColor3 = Color3.fromRGB(45, 25, 55)
     BtnFarmMode.TextColor3 = Color3.fromRGB(200, 200, 200)
     PasswordOverlay.Visible = false
     loadPvPModeTabs()
@@ -1465,9 +1534,9 @@ end)
 
 BtnFarmMode.MouseButton1Click:Connect(function()
     if farmUnlocked then
-        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
-        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 20, 25)
-        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 10, 25)
+        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 25, 55)
         BtnPvPMode.TextColor3 = Color3.fromRGB(200, 200, 200)
         PasswordOverlay.Visible = false
         loadFarmModeTabs()
@@ -1481,9 +1550,9 @@ SubmitPasswordBtn.MouseButton1Click:Connect(function()
     if PasswordInput.Text == "605158" then
         farmUnlocked = true
         PasswordOverlay.Visible = false
-        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
-        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 20, 25)
-        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        BtnFarmMode.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+        BtnFarmMode.TextColor3 = Color3.fromRGB(20, 10, 25)
+        BtnPvPMode.BackgroundColor3 = Color3.fromRGB(45, 25, 55)
         BtnPvPMode.TextColor3 = Color3.fromRGB(200, 200, 200)
         loadFarmModeTabs()
     else
@@ -1501,7 +1570,7 @@ local MaterialModal = Instance.new("Frame")
 MaterialModal.Name = "MaterialSelectionModal"
 MaterialModal.Size = UDim2.new(0, 280, 0, 320)
 MaterialModal.Position = UDim2.new(0.5, -140, 0.5, -160)
-MaterialModal.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+MaterialModal.BackgroundColor3 = Color3.fromRGB(25, 12, 35)
 MaterialModal.BorderSizePixel = 0
 MaterialModal.ZIndex = 50
 MaterialModal.Visible = false
@@ -1516,7 +1585,7 @@ ModalTitle.Position = UDim2.new(0, 10, 0, 0)
 ModalTitle.BackgroundTransparency = 1
 ModalTitle.Font = Enum.Font.SourceSansBold
 ModalTitle.TextSize = 15
-ModalTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ModalTitle.TextColor3 = Color3.fromRGB(255, 140, 0)
 ModalTitle.TextXAlignment = Enum.TextXAlignment.Left
 ModalTitle.Text = "Select Material to Farm"
 ModalTitle.ZIndex = 51
@@ -1525,7 +1594,7 @@ ModalTitle.Parent = MaterialModal
 local CloseModalBtn = Instance.new("TextButton")
 CloseModalBtn.Size = UDim2.new(0, 25, 0, 25)
 CloseModalBtn.Position = UDim2.new(1, -28, 0, 5)
-CloseModalBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+CloseModalBtn.BackgroundColor3 = Color3.fromRGB(45, 20, 60)
 CloseModalBtn.Font = Enum.Font.SourceSansBold
 CloseModalBtn.TextSize = 13
 CloseModalBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -1541,7 +1610,7 @@ end)
 local ModalSearchBar = Instance.new("TextBox")
 ModalSearchBar.Size = UDim2.new(1, -20, 0, 30)
 ModalSearchBar.Position = UDim2.new(0, 10, 0, 40)
-ModalSearchBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+ModalSearchBar.BackgroundColor3 = Color3.fromRGB(40, 18, 55)
 ModalSearchBar.Font = Enum.Font.SourceSans
 ModalSearchBar.TextSize = 13
 ModalSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1554,7 +1623,7 @@ Instance.new("UICorner", ModalSearchBar).CornerRadius = UDim.new(0, 6)
 local ModalScrollFrame = Instance.new("ScrollingFrame")
 ModalScrollFrame.Size = UDim2.new(1, -20, 0, 230)
 ModalScrollFrame.Position = UDim2.new(0, 10, 0, 78)
-ModalScrollFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+ModalScrollFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 22)
 ModalScrollFrame.BorderSizePixel = 0
 ModalScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 ModalScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -1571,7 +1640,7 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
     Row.Position = UDim2.new(0, 5, 0, yPos)
-    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
@@ -1581,7 +1650,7 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 13
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 255)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Text = name
     Label.Parent = Row
@@ -1589,11 +1658,11 @@ local function createToggleRow(parentFrame, name, initialState, yPos)
     local Button = Instance.new("TextButton")
     Button.Size = UDim2.new(0, 90, 0, 26)
     Button.Position = UDim2.new(1, -95, 0.5, -13)
-    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    Button.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     Button.Font = Enum.Font.SourceSansBold
     Button.TextSize = 12
     Button.Text = initialState and "ON" or "OFF"
-    Button.TextColor3 = initialState and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    Button.TextColor3 = initialState and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     Button.Parent = Row
     Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
 
@@ -1604,7 +1673,7 @@ local function createMaterialSelectorRow(parentFrame, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
     Row.Position = UDim2.new(0, 5, 0, yPos)
-    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
@@ -1617,7 +1686,7 @@ local function createMaterialSelectorRow(parentFrame, yPos)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 13
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 255)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Text = "Select Material (" .. currentSea .. "):"
     Label.Parent = Row
@@ -1625,11 +1694,11 @@ local function createMaterialSelectorRow(parentFrame, yPos)
     local SelectButton = Instance.new("TextButton")
     SelectButton.Size = UDim2.new(0, 160, 0, 26)
     SelectButton.Position = UDim2.new(1, -165, 0.5, -13)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SelectButton.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     SelectButton.Font = Enum.Font.SourceSansBold
     SelectButton.TextSize = 12
     SelectButton.Text = availableMaterials[1] and availableMaterials[1].Name or "None"
-    SelectButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    SelectButton.TextColor3 = Color3.fromRGB(255, 140, 0)
     SelectButton.Parent = Row
     Instance.new("UICorner", SelectButton).CornerRadius = UDim.new(0, 4)
 
@@ -1648,7 +1717,7 @@ local function createMaterialSelectorRow(parentFrame, yPos)
             if filter == "" or matData.Name:lower():find(filter:lower()) then
                 local itemBtn = Instance.new("TextButton")
                 itemBtn.Size = UDim2.new(1, -8, 0, 30)
-                itemBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                itemBtn.BackgroundColor3 = Color3.fromRGB(45, 20, 62)
                 itemBtn.Font = Enum.Font.SourceSansBold
                 itemBtn.TextSize = 13
                 itemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1681,7 +1750,7 @@ local function createSliderRow(parentFrame, name, minVal, maxVal, currentVal, yP
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 50)
     Row.Position = UDim2.new(0, 5, 0, yPos)
-    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
@@ -1691,7 +1760,7 @@ local function createSliderRow(parentFrame, name, minVal, maxVal, currentVal, yP
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 13
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 255)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Text = name .. ": " .. currentVal
     Label.Parent = Row
@@ -1699,14 +1768,14 @@ local function createSliderRow(parentFrame, name, minVal, maxVal, currentVal, yP
     local SliderBar = Instance.new("TextButton")
     SliderBar.Size = UDim2.new(1, -20, 0, 14)
     SliderBar.Position = UDim2.new(0, 10, 0, 30)
-    SliderBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     SliderBar.Text = ""
     SliderBar.Parent = Row
     Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(0, 4)
 
     local Fill = Instance.new("Frame")
     Fill.Size = UDim2.new((currentVal - minVal) / (maxVal - minVal), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+    Fill.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
     Fill.BorderSizePixel = 0
     Fill.Parent = SliderBar
     Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 4)
@@ -1734,7 +1803,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
     Row.Position = UDim2.new(0, 5, 0, yPos)
-    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
@@ -1744,7 +1813,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 12
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 255)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Text = name
     Label.Parent = Row
@@ -1752,11 +1821,11 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
     local KeyButton = Instance.new("TextButton")
     KeyButton.Size = UDim2.new(0, 110, 0, 26)
     KeyButton.Position = UDim2.new(1, -115, 0.5, -13)
-    KeyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    KeyButton.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     KeyButton.Font = Enum.Font.SourceSansBold
     KeyButton.TextSize = 12
     KeyButton.Text = Keybinds[keyName].Name
-    KeyButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    KeyButton.TextColor3 = Color3.fromRGB(255, 140, 0)
     KeyButton.Parent = Row
     Instance.new("UICorner", KeyButton).CornerRadius = UDim.new(0, 4)
 
@@ -1772,7 +1841,7 @@ local function createKeybindRow(parentFrame, name, keyName, yPos)
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 Keybinds[keyName] = input.KeyCode
                 KeyButton.Text = input.KeyCode.Name
-                KeyButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+                KeyButton.TextColor3 = Color3.fromRGB(255, 140, 0)
                 listening = false
                 saveSettings()
                 if connection then connection:Disconnect() end
@@ -1785,7 +1854,7 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     local Row = Instance.new("Frame")
     Row.Size = UDim2.new(1, -10, 0, 34)
     Row.Position = UDim2.new(0, 5, 0, yPos)
-    Row.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    Row.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
     Row.Parent = parentFrame
     Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 6)
 
@@ -1795,7 +1864,7 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.SourceSansBold
     Label.TextSize = 12
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 255)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Text = "Action " .. index
     Label.Parent = Row
@@ -1803,11 +1872,11 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     local SelectButton = Instance.new("TextButton")
     SelectButton.Size = UDim2.new(0, 110, 0, 26)
     SelectButton.Position = UDim2.new(1, -225, 0.5, -13)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SelectButton.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     SelectButton.Font = Enum.Font.SourceSansBold
     SelectButton.TextSize = 11
     SelectButton.Text = MacroSelections[index]
-    SelectButton.TextColor3 = Color3.fromRGB(0, 255, 128)
+    SelectButton.TextColor3 = Color3.fromRGB(255, 140, 0)
     SelectButton.Parent = Row
     Instance.new("UICorner", SelectButton).CornerRadius = UDim.new(0, 4)
 
@@ -1826,7 +1895,7 @@ local function createMacroBlockWithDelay(parentFrame, index, yPos)
     local DelayButton = Instance.new("TextButton")
     DelayButton.Size = UDim2.new(0, 95, 0, 26)
     DelayButton.Position = UDim2.new(1, -100, 0.5, -13)
-    DelayButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    DelayButton.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
     DelayButton.Font = Enum.Font.SourceSansBold
     DelayButton.TextSize = 11
     DelayButton.Text = "Delay: " .. string.format("%.1fs", MacroDelays[index])
@@ -1879,14 +1948,14 @@ end
 local MusicControlBox = Instance.new("Frame")
 MusicControlBox.Size = UDim2.new(1, -10, 0, 110)
 MusicControlBox.Position = UDim2.new(0, 5, 0, 5)
-MusicControlBox.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+MusicControlBox.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
 MusicControlBox.Parent = MusicFrame
 Instance.new("UICorner", MusicControlBox).CornerRadius = UDim.new(0, 6)
 
 local MusicIdInput = Instance.new("TextBox")
 MusicIdInput.Size = UDim2.new(0.65, -10, 0, 30)
 MusicIdInput.Position = UDim2.new(0, 10, 0, 10)
-MusicIdInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MusicIdInput.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
 MusicIdInput.Font = Enum.Font.SourceSans
 MusicIdInput.TextSize = 13
 MusicIdInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1898,7 +1967,7 @@ Instance.new("UICorner", MusicIdInput).CornerRadius = UDim.new(0, 4)
 local MusicNameInput = Instance.new("TextBox")
 MusicNameInput.Size = UDim2.new(0.65, -10, 0, 30)
 MusicNameInput.Position = UDim2.new(0, 10, 0, 45)
-MusicNameInput.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MusicNameInput.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
 MusicNameInput.Font = Enum.Font.SourceSans
 MusicNameInput.TextSize = 13
 MusicNameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1910,10 +1979,10 @@ Instance.new("UICorner", MusicNameInput).CornerRadius = UDim.new(0, 4)
 local PlayMusicBtn = Instance.new("TextButton")
 PlayMusicBtn.Size = UDim2.new(0.3, 0, 0, 30)
 PlayMusicBtn.Position = UDim2.new(0.68, 0, 0, 10)
-PlayMusicBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+PlayMusicBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 PlayMusicBtn.Font = Enum.Font.SourceSansBold
 PlayMusicBtn.TextSize = 12
-PlayMusicBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+PlayMusicBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
 PlayMusicBtn.Text = "Play ID"
 PlayMusicBtn.Parent = MusicControlBox
 Instance.new("UICorner", PlayMusicBtn).CornerRadius = UDim.new(0, 4)
@@ -1925,7 +1994,7 @@ end)
 local SaveTrackBtn = Instance.new("TextButton")
 SaveTrackBtn.Size = UDim2.new(0.3, 0, 0, 30)
 SaveTrackBtn.Position = UDim2.new(0.68, 0, 0, 45)
-SaveTrackBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+SaveTrackBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
 SaveTrackBtn.Font = Enum.Font.SourceSansBold
 SaveTrackBtn.TextSize = 12
 SaveTrackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1951,10 +2020,10 @@ end)
 local LoopToggleBtn = Instance.new("TextButton")
 LoopToggleBtn.Size = UDim2.new(0.46, 0, 0, 25)
 LoopToggleBtn.Position = UDim2.new(0.51, 0, 0, 80)
-LoopToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+LoopToggleBtn.BackgroundColor3 = Color3.fromRGB(55, 25, 75)
 LoopToggleBtn.Font = Enum.Font.SourceSansBold
 LoopToggleBtn.TextSize = 12
-LoopToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 128)
+LoopToggleBtn.TextColor3 = Color3.fromRGB(255, 140, 0)
 LoopToggleBtn.Text = "Loop: ON"
 LoopToggleBtn.Parent = MusicControlBox
 Instance.new("UICorner", LoopToggleBtn).CornerRadius = UDim.new(0, 4)
@@ -1963,7 +2032,7 @@ LoopToggleBtn.MouseButton1Click:Connect(function()
     MusicSettings.Looped = not MusicSettings.Looped
     activeSound.Looped = MusicSettings.Looped
     LoopToggleBtn.Text = MusicSettings.Looped and "Loop: ON" or "Loop: OFF"
-    LoopToggleBtn.TextColor3 = MusicSettings.Looped and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    LoopToggleBtn.TextColor3 = MusicSettings.Looped and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
 createSliderRow(MusicFrame, "Music Volume", 0, 10, math.floor(MusicSettings.Volume * 5), 120, function(val)
@@ -1985,7 +2054,7 @@ SavedMusicHeader.Parent = MusicFrame
 local SavedMusicListFrame = Instance.new("Frame")
 SavedMusicListFrame.Size = UDim2.new(1, -10, 0, 280)
 SavedMusicListFrame.Position = UDim2.new(0, 5, 0, 205)
-SavedMusicListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+SavedMusicListFrame.BackgroundColor3 = Color3.fromRGB(25, 12, 35)
 SavedMusicListFrame.Parent = MusicFrame
 Instance.new("UICorner", SavedMusicListFrame).CornerRadius = UDim.new(0, 6)
 
@@ -2010,7 +2079,7 @@ local function renderSavedMusicList()
     for idx, track in ipairs(SavedMusicList) do
         local trackRow = Instance.new("Frame")
         trackRow.Size = UDim2.new(1, -6, 0, 32)
-        trackRow.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        trackRow.BackgroundColor3 = Color3.fromRGB(45, 20, 60)
         trackRow.Parent = MusicListScroll
         Instance.new("UICorner", trackRow).CornerRadius = UDim.new(0, 4)
 
@@ -2020,7 +2089,7 @@ local function renderSavedMusicList()
         titleLbl.BackgroundTransparency = 1
         titleLbl.Font = Enum.Font.SourceSansBold
         titleLbl.TextSize = 12
-        titleLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+        titleLbl.TextColor3 = Color3.fromRGB(230, 220, 255)
         titleLbl.TextXAlignment = Enum.TextXAlignment.Left
         titleLbl.Text = track.Name .. " (" .. track.Id .. ")"
         titleLbl.Parent = trackRow
@@ -2028,10 +2097,10 @@ local function renderSavedMusicList()
         local playBtn = Instance.new("TextButton")
         playBtn.Size = UDim2.new(0, 50, 0, 22)
         playBtn.Position = UDim2.new(1, -105, 0.5, -11)
-        playBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+        playBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
         playBtn.Font = Enum.Font.SourceSansBold
         playBtn.TextSize = 11
-        playBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+        playBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
         playBtn.Text = "Play"
         playBtn.Parent = trackRow
         Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0, 4)
@@ -2084,7 +2153,7 @@ local btnAutoRaid = createToggleRow(RaidTab, "Auto Raid (Do Only)", AutoRaidSett
 btnAutoFarmMastery.MouseButton1Click:Connect(function()
     AutoFarmMasterySettings.Enabled = not AutoFarmMasterySettings.Enabled
     btnAutoFarmMastery.Text = AutoFarmMasterySettings.Enabled and "ON" or "OFF"
-    btnAutoFarmMastery.TextColor3 = AutoFarmMasterySettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoFarmMastery.TextColor3 = AutoFarmMasterySettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not AutoFarmMasterySettings.Enabled then
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2103,7 +2172,7 @@ end)
 btnAutoFarmHaunted.MouseButton1Click:Connect(function()
     AutoFarmHauntedSettings.Enabled = not AutoFarmHauntedSettings.Enabled
     btnAutoFarmHaunted.Text = AutoFarmHauntedSettings.Enabled and "ON" or "OFF"
-    btnAutoFarmHaunted.TextColor3 = AutoFarmHauntedSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoFarmHaunted.TextColor3 = AutoFarmHauntedSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not AutoFarmHauntedSettings.Enabled then
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2122,7 +2191,7 @@ end)
 btnAutoFarmMaterial.MouseButton1Click:Connect(function()
     AutoFarmMaterialSettings.Enabled = not AutoFarmMaterialSettings.Enabled
     btnAutoFarmMaterial.Text = AutoFarmMaterialSettings.Enabled and "ON" or "OFF"
-    btnAutoFarmMaterial.TextColor3 = AutoFarmMaterialSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoFarmMaterial.TextColor3 = AutoFarmMaterialSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not AutoFarmMaterialSettings.Enabled then
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2141,7 +2210,7 @@ end)
 btnAutoRaid.MouseButton1Click:Connect(function()
     AutoRaidSettings.Enabled = not AutoRaidSettings.Enabled
     btnAutoRaid.Text = AutoRaidSettings.Enabled and "ON" or "OFF"
-    btnAutoRaid.TextColor3 = AutoRaidSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoRaid.TextColor3 = AutoRaidSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not AutoRaidSettings.Enabled then
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2165,7 +2234,7 @@ local btnNoStun = createToggleRow(PvPFrame, "No Stun", NoStunSettings.Enabled, 1
 btnNoStun.MouseButton1Click:Connect(function()
     NoStunSettings.Enabled = not NoStunSettings.Enabled
     btnNoStun.Text = NoStunSettings.Enabled and "ON" or "OFF"
-    btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnNoStun.TextColor3 = NoStunSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
 local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", PlayerHitboxSettings.Enabled, 165)
@@ -2173,7 +2242,7 @@ local btnPlayerHitbox = createToggleRow(PvPFrame, "Player Hitbox Expander", Play
 btnPlayerHitbox.MouseButton1Click:Connect(function()
     PlayerHitboxSettings.Enabled = not PlayerHitboxSettings.Enabled
     btnPlayerHitbox.Text = PlayerHitboxSettings.Enabled and "ON" or "OFF"
-    btnPlayerHitbox.TextColor3 = PlayerHitboxSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnPlayerHitbox.TextColor3 = PlayerHitboxSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not PlayerHitboxSettings.Enabled then
         restorePlayerHitboxes()
     end
@@ -2227,28 +2296,28 @@ end)
 btnAutoV3.MouseButton1Click:Connect(function()
     MiscSettings.AutoV3 = not MiscSettings.AutoV3
     btnAutoV3.Text = MiscSettings.AutoV3 and "ON" or "OFF"
-    btnAutoV3.TextColor3 = MiscSettings.AutoV3 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoV3.TextColor3 = MiscSettings.AutoV3 and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     saveSettings()
 end)
 
 btnAutoV4.MouseButton1Click:Connect(function()
     MiscSettings.AutoV4 = not MiscSettings.AutoV4
     btnAutoV4.Text = MiscSettings.AutoV4 and "ON" or "OFF"
-    btnAutoV4.TextColor3 = MiscSettings.AutoV4 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoV4.TextColor3 = MiscSettings.AutoV4 and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     saveSettings()
 end)
 
 btnAutoAura.MouseButton1Click:Connect(function()
     MiscSettings.AutoAura = not MiscSettings.AutoAura
     btnAutoAura.Text = MiscSettings.AutoAura and "ON" or "OFF"
-    btnAutoAura.TextColor3 = MiscSettings.AutoAura and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAutoAura.TextColor3 = MiscSettings.AutoAura and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     saveSettings()
 end)
 
 btnWalkOnWater.MouseButton1Click:Connect(function()
     MiscSettings.WalkOnWater = not MiscSettings.WalkOnWater
     btnWalkOnWater.Text = MiscSettings.WalkOnWater and "ON" or "OFF"
-    btnWalkOnWater.TextColor3 = MiscSettings.WalkOnWater and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnWalkOnWater.TextColor3 = MiscSettings.WalkOnWater and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not MiscSettings.WalkOnWater and waterPlatform then
         waterPlatform:Destroy()
         waterPlatform = nil
@@ -2259,14 +2328,14 @@ end)
 btnAntiAlly.MouseButton1Click:Connect(function()
     MiscSettings.AntiAlly = not MiscSettings.AntiAlly
     btnAntiAlly.Text = MiscSettings.AntiAlly and "ON" or "OFF"
-    btnAntiAlly.TextColor3 = MiscSettings.AntiAlly and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAntiAlly.TextColor3 = MiscSettings.AntiAlly and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     saveSettings()
 end)
 
 btnAntiBounty.MouseButton1Click:Connect(function()
     MiscSettings.AntiBountyLose = not MiscSettings.AntiBountyLose
     btnAntiBounty.Text = MiscSettings.AntiBountyLose and "ON" or "OFF"
-    btnAntiBounty.TextColor3 = MiscSettings.AntiBountyLose and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnAntiBounty.TextColor3 = MiscSettings.AntiBountyLose and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not MiscSettings.AntiBountyLose then
         local char = localPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -2288,7 +2357,7 @@ local btnFruitNotifier = createToggleRow(FruitFrame, "Fruit Notifier ESP", Fruit
 btnFruitNotifier.MouseButton1Click:Connect(function()
     FruitNotifierSettings.Enabled = not FruitNotifierSettings.Enabled
     btnFruitNotifier.Text = FruitNotifierSettings.Enabled and "ON" or "OFF"
-    btnFruitNotifier.TextColor3 = FruitNotifierSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnFruitNotifier.TextColor3 = FruitNotifierSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     
     if FruitNotifierSettings.Enabled then
         for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -2306,7 +2375,7 @@ local btnNpcHitbox = createToggleRow(NpcFrame, "NPC Hitbox Expander", NpcHitboxS
 btnNpcHitbox.MouseButton1Click:Connect(function()
     NpcHitboxSettings.Enabled = not NpcHitboxSettings.Enabled
     btnNpcHitbox.Text = NpcHitboxSettings.Enabled and "ON" or "OFF"
-    btnNpcHitbox.TextColor3 = NpcHitboxSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnNpcHitbox.TextColor3 = NpcHitboxSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
     if not NpcHitboxSettings.Enabled then
         restoreHitboxes()
     end
@@ -2334,19 +2403,19 @@ end)
 btnFOVCircle.MouseButton1Click:Connect(function()
     FOVSettings.Enabled = not FOVSettings.Enabled
     btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
-    btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnFastAttack.MouseButton1Click:Connect(function()
     FastAttackSettings.AutoClick = not FastAttackSettings.AutoClick
     btnFastAttack.Text = FastAttackSettings.AutoClick and "ON" or "OFF"
-    btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnFastAttack.TextColor3 = FastAttackSettings.AutoClick and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
 btnESP.MouseButton1Click:Connect(function()
     ESPStates.Enabled = not ESPStates.Enabled
     btnESP.Text = ESPStates.Enabled and "ON" or "OFF"
-    btnESP.TextColor3 = ESPStates.Enabled and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 50, 50)
+    btnESP.TextColor3 = ESPStates.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
 end)
 
 local espFolder = CoreGui:FindFirstChild("AlwaysActivePlayerESP")
@@ -2356,6 +2425,15 @@ if not espFolder then
     pcall(function() espFolder.Parent = CoreGui end)
     if not espFolder.Parent then espFolder.Parent = ScreenGui end
 end
+
+Players.PlayerRemoving:Connect(function(plr)
+    pcall(function()
+        local existingEsp = espFolder:FindFirstChild("ESP_" .. plr.Name)
+        if existingEsp then
+            existingEsp:Destroy()
+        end
+    end)
+end)
 
 task.spawn(function()
     while true do
@@ -2569,7 +2647,7 @@ RunService.RenderStepped:Connect(function()
 
                         local espColor = Color3.fromRGB(255, 50, 50)
                         if isAlly(plr) then
-                            espColor = Color3.fromRGB(0, 255, 128)
+                            espColor = Color3.fromRGB(255, 140, 0)
                         elseif plr.Team then
                             local teamName = tostring(plr.Team.Name):lower()
                             if teamName:find("marine") then
