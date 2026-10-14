@@ -673,10 +673,17 @@ local MainFrame -- Forward reference for UI visibility control
 
 local function runMacroSequence()
     if isMacroRunning then return end
+    
+    -- Prevent macro from clicking if the menu is open (stops accidental UI clicking)
+    if MainFrame and MainFrame.Visible then return end
+
     isMacroRunning = true
 
     task.spawn(function()
         for i, actionStr in ipairs(MacroSelections) do
+            -- Re-check if menu was opened mid-macro
+            if MainFrame and MainFrame.Visible then break end
+
             if actionStr and actionStr ~= "None" then
                 local spacePos = actionStr:find(" ")
                 if spacePos then
@@ -692,17 +699,9 @@ local function runMacroSequence()
                             local viewportSize = camera.ViewportSize
                             local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
                             
-                            -- Temporarily hide MainFrame during simulated click so it never hits any UI button
-                            local wasVisible = MainFrame and MainFrame.Visible or false
-                            if MainFrame then MainFrame.Visible = false end
-                            
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
                             task.wait(0.05)
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                            
-                            if MainFrame and wasVisible then
-                                MainFrame.Visible = true
-                            end
                             task.wait(0.05)
 
                             VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
@@ -1326,6 +1325,16 @@ OpenButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
+local btnFOVCircle -- Forward declaration for UI sync
+
+local function updateFOVState(newState)
+    FOVSettings.Enabled = newState
+    if btnFOVCircle then
+        btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
+        btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
+    end
+end
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -1336,7 +1345,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     elseif input.KeyCode == Keybinds.MacroKey then
         runMacroSequence()
     elseif input.KeyCode == Keybinds.AimbotKey then
-        FOVSettings.Enabled = not FOVSettings.Enabled
+        updateFOVState(not FOVSettings.Enabled)
     elseif input.KeyCode == Keybinds.PlayerCam then
         if not CamStates.PlayerCamActive then
             local target = findAimedPlayerTarget()
@@ -2366,7 +2375,7 @@ btnAutoRaid.MouseButton1Click:Connect(function()
     end
 end)
 
-local btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
+btnFOVCircle = createToggleRow(PvPFrame, "Rainbow FOV Aimbot", FOVSettings.Enabled, 5)
 local btnFastAttack = createToggleRow(PvPFrame, "Fast Attack", FastAttackSettings.AutoClick, 45)
 local btnESP = createToggleRow(PvPFrame, "ESP Toggle", ESPStates.Enabled, 85)
 local btnNoStun = createToggleRow(PvPFrame, "No Stun", NoStunSettings.Enabled, 125)
@@ -2541,9 +2550,7 @@ Workspace.DescendantAdded:Connect(function(obj)
 end)
 
 btnFOVCircle.MouseButton1Click:Connect(function()
-    FOVSettings.Enabled = not FOVSettings.Enabled
-    btnFOVCircle.Text = FOVSettings.Enabled and "ON" or "OFF"
-    btnFOVCircle.TextColor3 = FOVSettings.Enabled and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(255, 50, 50)
+    updateFOVState(not FOVSettings.Enabled)
 end)
 
 btnFastAttack.MouseButton1Click:Connect(function()
