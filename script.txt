@@ -669,6 +669,8 @@ local function equipToolType(toolType)
 end
 
 local isMacroRunning = false
+local MainFrame -- Forward reference for UI visibility control
+
 local function runMacroSequence()
     if isMacroRunning then return end
     isMacroRunning = true
@@ -690,9 +692,17 @@ local function runMacroSequence()
                             local viewportSize = camera.ViewportSize
                             local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
                             
+                            -- Temporarily hide MainFrame during simulated click so it never hits any UI button
+                            local wasVisible = MainFrame and MainFrame.Visible or false
+                            if MainFrame then MainFrame.Visible = false end
+                            
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
                             task.wait(0.05)
                             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                            
+                            if MainFrame and wasVisible then
+                                MainFrame.Visible = true
+                            end
                             task.wait(0.05)
 
                             VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
@@ -1293,7 +1303,7 @@ OpenButton.Parent = ScreenGui
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 8)
 
 local frameWidth, frameHeight = 560, 420
-local MainFrame = Instance.new("ImageLabel")
+MainFrame = Instance.new("ImageLabel")
 MainFrame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
 MainFrame.Position = UDim2.new(0.5, -frameWidth/2, 0.5, -frameHeight/2)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 10, 25)
@@ -1608,7 +1618,6 @@ AdminTrollBanBtn.Font = Enum.Font.SourceSansBold
 AdminTrollBanBtn.TextSize = 13
 AdminTrollBanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 AdminTrollBanBtn.Text = "Trigger Fake TrollBan (/tb)"
-AdminTrollBanBtn.Active = false
 AdminTrollBanBtn.Parent = AdminTab
 Instance.new("UICorner", AdminTrollBanBtn).CornerRadius = UDim.new(0, 6)
 
@@ -1635,7 +1644,6 @@ AdminKickBtn.Font = Enum.Font.SourceSansBold
 AdminKickBtn.TextSize = 13
 AdminKickBtn.TextColor3 = Color3.fromRGB(20, 10, 25)
 AdminKickBtn.Text = "Trigger Fake Kick (/kick)"
-AdminKickBtn.Active = false
 AdminKickBtn.Parent = AdminTab
 Instance.new("UICorner", AdminKickBtn).CornerRadius = UDim.new(0, 6)
 
