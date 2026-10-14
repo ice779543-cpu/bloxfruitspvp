@@ -2843,7 +2843,7 @@ RunService.RenderStepped:Connect(function()
             local screenSize = camera.ViewportSize
             local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
             FOVCircle.Position = screenCenter
-            FOVCircle.Visible = MainFrame.Visible == false
+            FOVCircle.Visible = (MainFrame.Visible == false)
         else
             FOVCircle.Visible = false
         end
